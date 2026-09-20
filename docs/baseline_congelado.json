@@ -1,0 +1,39 @@
+{
+  "data_congelamento": "2026-09-20",
+  "unidade": "linha (InvoiceNo x StockCode)",
+  "janela_exploracao": "InvoiceDate < 2011-10-01 (2010-12-01 a 2011-09-30)",
+  "holdout_reservado": "InvoiceDate >= 2011-10-01 (nunca lido nesta fase)",
+  "filtros_aplicados": {
+    "stockcodes_excluidos": [
+      "POST",
+      "DOT",
+      "M",
+      "C2",
+      "D",
+      "S",
+      "BANK CHARGES",
+      "CRUK",
+      "B",
+      "PADS",
+      "gift_0001_40",
+      "gift_0001_50",
+      "gift_0001_30",
+      "gift_0001_20",
+      "gift_0001_10"
+    ],
+    "unitprice_le_0_em_produto_real": "excluido do universo (decisao fechada na 2B, estende a 2A)",
+    "customerid_nulo": "excluido do universo pareavel (fora do escopo do Define)"
+  },
+  "n_total_universo": 265427,
+  "n_defeito": 4957,
+  "taxa_cancelamento": 0.018676,
+  "ic95_wilson": [
+    0.018167,
+    0.019198
+  ],
+  "dpmo": 18675.6,
+  "sigma_longo_prazo": 2.082,
+  "meta_interna_p25_mensal_janela_madura": 0.019911,
+  "taxa_pooled_janela_madura_dez2010_ago2011": 0.020456,
+  "limitacao_censura_direita": "taxa do mes de set/2011 artificialmente baixa (0.86% vs media geral 2.0%) por censura a direita - cancelamentos que cairiam no holdout sao invisiveis; meta interna e comparacao de capabilidade usam janela madura (dez/2010-ago/2011) para nao herdar esse vies"
+}
