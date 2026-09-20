@@ -1,0 +1,4 @@
+online_retail.csv
+__pycache__/
+*.pyc
+.venv/
