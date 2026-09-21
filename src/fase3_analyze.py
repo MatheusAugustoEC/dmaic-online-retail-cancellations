@@ -13,15 +13,14 @@ import statsmodels.formula.api as smf
 pd.set_option("display.width", 140)
 pd.set_option("display.max_columns", 20)
 
-HOLDOUT_START = pd.Timestamp("2011-10-01")
-NON_PRODUCT_CODES = ["POST", "DOT", "M", "C2", "D", "S", "BANK CHARGES", "CRUK", "B", "PADS"]
+from config import get_non_product_codes, HOLDOUT_START
 
 raw = pd.read_csv(
     "online_retail.csv",
     dtype={"InvoiceNo": str, "StockCode": str, "Description": str, "Country": str},
     parse_dates=["InvoiceDate"],
 )
-NON_PRODUCT_CODES += [c for c in raw["StockCode"].unique() if str(c).lower().startswith("gift_")]
+NON_PRODUCT_CODES = get_non_product_codes(raw["StockCode"])
 
 df = raw[raw["InvoiceDate"] < HOLDOUT_START].copy()
 print(f"[GUARDA HOLDOUT] janela de exploracao: {len(df)} linhas de {len(raw)} totais. Holdout nunca carregado.")

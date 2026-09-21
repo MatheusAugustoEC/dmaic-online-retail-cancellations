@@ -7,6 +7,7 @@ import pandas as pd
 from statsmodels.stats.proportion import proportion_confint
 from statsmodels.stats.power import NormalIndPower
 from statsmodels.stats.proportion import proportion_effectsize
+from config import RISK_SEGMENT_RATE_MULTIPLIER, RISK_SEGMENT_MIN_N
 
 pd.set_option("display.width", 140)
 pd.set_option("display.max_columns", 20)
@@ -33,8 +34,8 @@ seg = seg.sort_values("rate", ascending=False)
 print(seg.to_string(index=False))
 
 overall_rate = df["defect"].mean()
-LIMIAR_TAXA = overall_rate * 1.5   # 1.5x a taxa geral
-LIMIAR_N = 500
+LIMIAR_TAXA = overall_rate * RISK_SEGMENT_RATE_MULTIPLIER
+LIMIAR_N = RISK_SEGMENT_MIN_N
 seg["sinalizado"] = (seg["rate"] >= LIMIAR_TAXA) & (seg["n"] >= LIMIAR_N)
 print(f"\nRegra de decisao: sinalizar celula se taxa >= {LIMIAR_TAXA*100:.3f}% (1.5x a taxa geral de {overall_rate*100:.3f}%) E n >= {LIMIAR_N}.")
 print("\nCelulas SINALIZADAS para verificacao previa:")
