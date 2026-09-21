@@ -1,0 +1,100 @@
+{
+  "data_abertura": "2026-09-20",
+  "aviso": "Abertura UNICA do holdout. Nao repetir esta leitura. Correcao futura so como adendo datado.",
+  "holdout_n": 130910,
+  "holdout_defeitos": 1543,
+  "holdout_taxa": 0.011787,
+  "holdout_ic95_wilson": [
+    0.011216,
+    0.012386
+  ],
+  "projecao_exploracao_madura": {
+    "media_mensal": 0.021722,
+    "intervalo_projetado_95": [
+      0.020893,
+      0.02255
+    ]
+  },
+  "taxa_holdout_dentro_da_projecao": false,
+  "segmentos_sinalizados_no_improve": [
+    [
+      "Resto",
+      "Q1",
+      "Recorrente"
+    ],
+    [
+      "Resto",
+      "Q2",
+      "Recorrente"
+    ],
+    [
+      "UK",
+      "Q4",
+      "Recorrente"
+    ]
+  ],
+  "segmentos_sinalizados_no_holdout_mesma_regra": [
+    [
+      "Resto",
+      "Q1",
+      "Primeira_compra"
+    ],
+    [
+      "Resto",
+      "Q1",
+      "Recorrente"
+    ],
+    [
+      "Resto",
+      "Q2",
+      "Primeira_compra"
+    ],
+    [
+      "Resto",
+      "Q2",
+      "Recorrente"
+    ],
+    [
+      "Resto",
+      "Q3",
+      "Primeira_compra"
+    ],
+    [
+      "Resto",
+      "Q4",
+      "Primeira_compra"
+    ],
+    [
+      "UK",
+      "Q4",
+      "Primeira_compra"
+    ],
+    [
+      "UK",
+      "Q4",
+      "Recorrente"
+    ]
+  ],
+  "segmentos_que_se_sustentaram": [
+    [
+      "Resto",
+      "Q1",
+      "Recorrente"
+    ],
+    [
+      "Resto",
+      "Q2",
+      "Recorrente"
+    ],
+    [
+      "UK",
+      "Q4",
+      "Recorrente"
+    ]
+  ],
+  "segmentos_que_nao_se_sustentaram": [],
+  "h4_stockcodes_sinalizados_exploracao": 195,
+  "h4_stockcodes_com_dado_suficiente_no_holdout": 174,
+  "h4_taxa_media_holdout_desses_produtos": 0.036256,
+  "h4_taxa_geral_holdout": 0.011787
+}
