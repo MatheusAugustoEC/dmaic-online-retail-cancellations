@@ -731,3 +731,96 @@ meu próprio pipeline, entregue como código funcionando.
   veredito.
 - README declara com todas as letras o que o dado não permite concluir.
 ```
+
+---
+
+## Entrega · Página única de apresentação
+
+Rode depois do Control, com os artefatos de todas as fases em mãos.
+
+```
+# FASE 6 — ENTREGA · Página única de apresentação
+
+O projeto está fechado. Agora preciso torná-lo consumível por qualquer pessoa,
+técnica ou não, numa página única publicável no GitHub Pages: painel, dashboard,
+relatório e slides, com linguagem simples e técnica.
+
+## Como construir
+Use a skill `entrega-dmaic` e siga-a do início ao fim. Ela traz o molde já
+testado, as regras de interação, os downloads em .xlsx e .pptx, e a auditoria
+final. Comece do molde; não reconstrua do zero o que ele já resolve.
+
+## O que é específico deste projeto
+- Métrica primária: taxa de cancelamento/devolução (fatura InvoiceNo com
+  prefixo "C" pareada a um pedido original, na unidade — pedido ou linha —
+  decidida no Define).
+- Meta: sem benchmark externo citável encontrado para o nicho de giftware
+  B2B (ver GEMBA DOCUMENTAL da Fase 0) — meta interna (melhor quartil
+  histórico entre países ou entre meses), declarada explicitamente como
+  proposta, não referência de mercado.
+- Controle: carta p mensal sobre InvoiceDate, agregação mensal (~12-14
+  pontos na janela de exploração, abaixo do ideal de 20 — explicar essa
+  limitação em vez de escondê-la).
+- Guardrails: volume total de pedidos, receita bruta, taxa de abandono de
+  checkout. Armadilha de otimização local: reduzir a taxa de cancelamento
+  só adicionando fricção no checkout (verificação prévia) a ponto de afastar
+  clientes legítimos, sem reduzir insatisfação real — os guardrails existem
+  para pegar isso.
+- Os dois Paretos: por TAXA — segmento Country × faixa de Quantity ×
+  recorrência do cliente; por IMPACTO ABSOLUTO — StockCode/categoria de
+  produto (linhas e receita cancelada). Mostrar os dois lado a lado, porque
+  apontam lugares diferentes.
+- Cubo do Dashboard: dimensões Country, faixa de Quantity (quartil),
+  recorrência do cliente (novo vs recorrente), StockCode/categoria de
+  produto; temporal = InvoiceDate por mês; par a cruzar na matriz =
+  Country × faixa de Quantity (é o cruzamento que sustenta ou derruba H1/H2
+  contra H5); dispersão volume × taxa = StockCode, volume de linhas no eixo
+  x e taxa de cancelamento no eixo y.
+- Hipótese rival a destacar: H5 — o efeito de Quantity alta (H1) e de país
+  fora do Reino Unido (H2) sobre cancelamento pode ser artefato de
+  composição (concentração em poucos clientes/países) ou de seleção
+  (cliente em primeira compra), não causa direta. Testada antes de H1/H2 no
+  Analyze — destacar o veredito real obtido, não o enunciado da hipótese.
+- Limitações obrigatórias: (1) não existe chave que ligue a fatura de
+  cancelamento à fatura original — o pareamento é inferido por CustomerID +
+  StockCode + proximidade de data, com taxa de acerto que precisa aparecer
+  no Relatório; (2) StockCodes não-produto (POST, D, M, BANK CHARGES, C2,
+  DOT, CRUK, etc.) foram excluídos da análise de defeito de produto — listar
+  quais; (3) um único ano de InvoiceDate não permite isolar um ciclo
+  sazonal completo dentro do holdout; (4) não há motivo declarado de
+  cancelamento nem custo de frete reverso — a simulação de ganho na Improve
+  usa ponto de indiferença, não ganho bruto, e isso precisa estar visível,
+  não só no apêndice; (5) parte das linhas tem CustomerID nulo e fica fora
+  de qualquer análise por cliente.
+- Ressalva de honestidade: dado real (UCI Online Retail), mas o recorte de
+  holdout está congelado e a ligação cancelamento↔pedido original é
+  reconstrução minha, não um campo do dado original; o stakeholder
+  (Gerente de Operações/Atendimento) é simulado, não confirmado com pessoa
+  real.
+- Ajustes no Relatório: a seção de "custo por devolução" da estrutura de
+  referência não pode ser preenchida com valor real — substituir por ponto
+  de indiferença, com a mesma proeminência que um custo real teria.
+
+## Insumo
+Os artefatos de todas as fases: baseline congelado, auditoria de qualidade,
+estabilidade, estratificação, causas validadas, hipótese rival, variação não
+explicada, contramedidas, conta do ganho, experimento, FMEA, plano de controle,
+abertura do holdout e limitações.
+
+## Obrigatório
+- Todo número da página vem do JSON do pipeline. Nenhum digitado à mão, nenhum
+  resto do molde.
+- Os números são idênticos nos dois registros de linguagem e nos quatro modos.
+- Antes de construir, me mostre o plano visual e os títulos dos slides.
+- A auditoria final da skill roda antes de me entregar: os três leitores, até três
+  rodadas, parando só sem bloqueante. O relatório de auditoria vem junto.
+
+## Tollgate ENTREGA
+- A página partiu do molde da `entrega-dmaic`, e nada do exemplo sobrou?
+- Todo número veio do pipeline, e os quatro modos concordam entre si?
+- As limitações deste dataset aparecem no Relatório e nos Slides?
+- No Dashboard, dá para entrar e sair de qualquer filtro só clicando?
+- A planilha e a apresentação baixam e abrem?
+- A auditoria final rodou, em quantas rodadas, e terminou sem bloqueante?
+- Um estranho abre o link e entende a resposta em menos de trinta segundos?
+```
