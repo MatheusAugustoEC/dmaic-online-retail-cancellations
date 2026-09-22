@@ -45,7 +45,9 @@
   function wireTips(el){
     el.onmousemove=function(e){ var t=e.target.closest?e.target.closest('[data-tip]'):null; if(t) showTip(t.getAttribute('data-tip'),e); else hideTip(); };
     el.onmouseleave=hideTip;
-    el.onclick=function(e){ var t=e.target.closest?e.target.closest('[data-flt]'):null; if(!t) return; hideTip(); toggleFlt(t.getAttribute('data-flt')); };
+    // [ZOOM] arrastar nao e clicar: depois de um arrasto, o clique sintetico
+    // que o navegador dispara em seguida e ignorado (regra 18, interacao.md).
+    el.onclick=function(e){ if(el._arrastou) return; var t=e.target.closest?e.target.closest('[data-flt]'):null; if(!t) return; hideTip(); toggleFlt(t.getAttribute('data-flt')); };
   }
   function toggleFlt(spec){
     spec.split(';').forEach(function(p){
@@ -67,11 +69,12 @@
     [['x',o.L],['y',o.T],['width',o.W-o.L-o.R],['height',o.H-o.T-o.B],['fill','transparent']].forEach(function(a){hit.setAttribute(a[0],a[1]);});
     hit.style.cursor = o.click ? 'pointer' : 'crosshair';
     svg.appendChild(ln); svg.appendChild(dt); svg.appendChild(hit);
+    var a0=o.i0||0, a1=(o.i1!=null?o.i1:o.n-1); // [ZOOM] janela visivel, para o crosshair mapear certo com zoom
     function idx(e){
       var r=svg.getBoundingClientRect();
       var x=(e.clientX-r.left)*o.W/r.width;
-      var i=Math.round((x-o.L)/(o.W-o.L-o.R)*(o.n-1));
-      return Math.max(0,Math.min(o.n-1,i));
+      var i=Math.round(a0+(x-o.L)/(o.W-o.L-o.R)*(a1-a0));
+      return Math.max(a0,Math.min(a1,i));
     }
     hit.addEventListener('mousemove',function(e){
       var i=idx(e), x=o.X(i), y=o.Y(i);
@@ -80,8 +83,70 @@
       showTip(o.tip(i),e);
     });
     hit.addEventListener('mouseleave',function(){ ln.setAttribute('visibility','hidden'); dt.setAttribute('visibility','hidden'); hideTip(); });
-    if(o.click) hit.addEventListener('click',function(e){ hideTip(); o.click(idx(e)); });
+    if(o.click) hit.addEventListener('click',function(e){ if(el._arrastou) return; hideTip(); o.click(idx(e)); });
   }
+
+  /* ================= zoom (regra 18, interacao.md) =================
+     Arrastar sobre a area do grafico amplia; Ctrl + roda aproxima/afasta;
+     duplo clique ou "Ver tudo" (so aparece com zoom ativo) volta. A roda
+     SOZINHA continua rolando a pagina. No celular, sem arrasto (bloquearia
+     a rolagem) - so a pinca nativa do navegador. Ouvintes de arrasto no
+     documento, uma vez so, lendo o estado DRAG (nunca acumulados). */
+  var ZOOM={}, DRAG=null;
+  var TOQUE = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+  function zoomBar(el,zoomed,reset){
+    var bar=document.createElement('div'); bar.className='zoom-bar';
+    bar.innerHTML='<span class="zoom-hint">'+(simples()?'Arraste sobre o gráfico para ampliar · Ctrl + roda do mouse aproxima e afasta':'Arraste para ampliar · Ctrl + roda: zoom · duplo clique: ver tudo')+'</span>'+
+      (zoomed?'<button type="button" class="zoom-reset">Ver tudo</button>':'');
+    el.appendChild(bar);
+    if(zoomed) bar.querySelector('.zoom-reset').onclick=function(e){ e.stopPropagation(); reset(); };
+  }
+  function zoomavel(el,o){
+    /* o: {W,H,L,R,T,B, xy (true=dois eixos; false=so o tempo), aplicar(x0,x1,y0,y1 em px), roda(fator,px,py), reset()} */
+    var svg=el.querySelector('svg');
+    function pt(e){ var r=svg.getBoundingClientRect(); return [(e.clientX-r.left)*o.W/r.width,(e.clientY-r.top)*o.H/r.height]; }
+    function dentro(p){ return p[0]>=o.L && p[0]<=o.W-o.R && p[1]>=o.T && p[1]<=o.H-o.B; }
+    if(!TOQUE){
+      svg.onmousedown=function(e){
+        if(e.button!==0) return; var p=pt(e); if(!dentro(p)) return;
+        e.preventDefault(); DRAG={el:el,svg:svg,o:o,p0:p,box:null,pt:pt};
+      };
+    } else {
+      svg.onmousedown=null;
+    }
+    svg.onwheel=function(e){
+      if(!e.ctrlKey) return; e.preventDefault();
+      var p=pt(e); if(!dentro(p)) return; o.roda(e.deltaY<0?0.8:1.25,p[0],p[1]);
+    };
+    svg.ondblclick=function(e){ e.preventDefault(); o.reset(); };
+    svg.style.cursor = TOQUE ? 'default' : 'crosshair';
+  }
+  function clampPx(v,a,b){ return Math.max(a,Math.min(b,v)); }
+  document.addEventListener('mousemove',function(e){
+    if(!DRAG) return; var d=DRAG, o=d.o, p=d.pt(e);
+    var x=clampPx(p[0],o.L,o.W-o.R), y=clampPx(p[1],o.T,o.H-o.B);
+    if(!d.box && Math.abs(x-d.p0[0])<5 && Math.abs(y-d.p0[1])<5) return;
+    if(!d.box){
+      d.box=document.createElementNS(NS,'rect');
+      [['fill',c('--accent')],['fill-opacity','.12'],['stroke',c('--accent')],['stroke-width','1'],['stroke-dasharray','4 3'],['pointer-events','none']].forEach(function(a){d.box.setAttribute(a[0],a[1]);});
+      d.svg.appendChild(d.box); hideTip();
+    }
+    var x0=Math.min(d.p0[0],x), x1=Math.max(d.p0[0],x);
+    var y0=o.xy?Math.min(d.p0[1],y):o.T, y1=o.xy?Math.max(d.p0[1],y):o.H-o.B;
+    d.box.setAttribute('x',x0); d.box.setAttribute('y',y0); d.box.setAttribute('width',x1-x0); d.box.setAttribute('height',y1-y0);
+    d.sel=[x0,x1,y0,y1];
+  });
+  document.addEventListener('mouseup',function(){
+    if(!DRAG) return; var d=DRAG; DRAG=null;
+    if(!d.box) return;
+    d.el._arrastou=true; setTimeout(function(){ d.el._arrastou=false; },0);
+    var s=d.sel; d.box.remove();
+    if(s[1]-s[0]<8 || (d.o.xy && s[3]-s[2]<8)) return;
+    d.o.aplicar(s[0],s[1],s[2],s[3]);
+  });
+  var medidor=document.createElement('canvas').getContext('2d');
+  function larguraTexto(t,px){ medidor.font=px+'px "Public Sans",sans-serif'; return medidor.measureText(t).width; }
+  function cruza(a,b){ return a[0]<b[0]+b[2] && b[0]<a[0]+a[2] && a[1]<b[1]+b[3] && b[1]<a[1]+a[3]; }
 
   /* ================= dimensoes (do JSON) =================
      g = pais, f = faixa de quantidade, s = recorrencia, p = produto, m = mes.
@@ -214,13 +279,18 @@
      direita (explicado no texto ao redor, nao no grafico). */
   function cartaPLaney(el){
     var CP=DADOS.carta_p, n=CP.taxa.length;
-    var W=880,H=290,L=42,R=16,T=16,B=34;
+    // [M1] R alargado para reservar uma margem FIXA, fora da area do grafico,
+    // onde o rotulo do limite mora - nunca mais colado na curva ou na linha
+    // pontilhada, porque essa faixa nao tem gridline nem dado nenhum.
+    var W=880,H=290,L=42,R=112,T=16,B=34;
     var pw=W-L-R, ph=H-T-B;
+    var z=ZOOM[el.id], i0=z?z.i0:0, i1=z?z.i1:n-1; // [ZOOM] so o eixo do tempo
+    function X(i){return L+(pw*(i-i0))/(i1-i0);} function Y(v){return T+ph-(ph*v)/ymax;}
     var ymax=Math.ceil(Math.max.apply(null,CP.ucl.concat(CP.taxa))/1)+0.5;
-    function X(i){return L+(pw*i)/(n-1);} function Y(v){return T+ph-(ph*v)/ymax;}
-    var s=sv(W,H);
-    var bandTop=CP.ucl.map(function(v,i){return [X(i),Y(v)];});
-    var bandBot=CP.lcl.map(function(v,i){return [X(i),Y(v)];});
+    var s=sv(W,H), clip='clip-'+el.id;
+    s+='<defs><clipPath id="'+clip+'"><rect x="'+L+'" y="'+(T-8)+'" width="'+pw+'" height="'+(ph+16)+'"/></clipPath></defs>';
+    var bandTop=[],bandBot=[];
+    for(var bi=i0;bi<=i1;bi++){ bandTop.push([X(bi),Y(CP.ucl[bi])]); bandBot.push([X(bi),Y(CP.lcl[bi])]); }
     var bandPath='M'+bandTop.map(function(p){return p[0].toFixed(1)+' '+p[1].toFixed(1);}).join('L')
       +'L'+bandBot.slice().reverse().map(function(p){return p[0].toFixed(1)+' '+p[1].toFixed(1);}).join('L')+'Z';
     s+='<path d="'+bandPath+'" fill="'+c('--band')+'"/>';
@@ -229,28 +299,24 @@
       s+='<text x="'+(L-7)+'" y="'+(Y(g)+3.5)+'" text-anchor="end" font-size="10" font-family="IBM Plex Mono,monospace" fill="'+c('--ink-3')+'">'+g+'%</text>';
     }
     s+='<line x1="'+L+'" y1="'+Y(CP.cl)+'" x2="'+(W-R)+'" y2="'+Y(CP.cl)+'" stroke="'+c('--accent')+'" stroke-width="1" stroke-opacity=".45"/>';
-    function pathOf(arr){ return 'M'+arr.map(function(v,i){return X(i).toFixed(1)+' '+Y(v).toFixed(1);}).join('L'); }
+    function pathOf(arr){ var d=''; for(var k=i0;k<=i1;k++) d+=(d?'L':'M')+X(k).toFixed(1)+' '+Y(arr[k]).toFixed(1); return d; }
     s+='<path d="'+pathOf(CP.ucl)+'" fill="none" stroke="'+c('--crit')+'" stroke-width="1.3" stroke-dasharray="5 4"/>';
     s+='<path d="'+pathOf(CP.lcl)+'" fill="none" stroke="'+c('--crit')+'" stroke-width="1.3" stroke-dasharray="5 4"/>';
-    // [M1] rotulo do limite ancorado no ponto mais BAIXO da curva de UCL (onde
-    // ha mais folga acima da linha), nao no ultimo ponto - la a UCL cai perto
-    // do LCL na semana final e o rotulo sobrepunha a propria linha pontilhada.
-    var idxUclMin = CP.ucl.indexOf(Math.min.apply(null, CP.ucl));
-    var yLabelUcl = Math.max(T + 10, Y(CP.ucl[idxUclMin]) - 14);
-    var lblUcl = simples()?'limite do normal':'UCL (Laney)';
-    var xUcl = X(idxUclMin), halfW = lblUcl.length*3.2;
-    var anchorUcl='middle';
-    if(xUcl+halfW > W-R){ anchorUcl='end'; xUcl = W-R; }
-    else if(xUcl-halfW < L){ anchorUcl='start'; xUcl = L; }
-    s+='<text x="'+xUcl.toFixed(1)+'" y="'+yLabelUcl+'" text-anchor="'+anchorUcl+'" font-size="10.5" font-weight="600" font-family="IBM Plex Mono,monospace" fill="'+c('--crit')+'">'+lblUcl+'</text>';
-    var d=''; CP.taxa.forEach(function(v,i){ d+=(i?'L':'M')+X(i).toFixed(1)+' '+Y(v).toFixed(1); });
-    s+='<path d="'+d+'" fill="none" stroke="'+c('--accent')+'" stroke-width="2" stroke-linejoin="round"/>';
-    CP.taxa.forEach(function(v,i){ if(CP.fora[i]) s+='<circle cx="'+X(i).toFixed(1)+'" cy="'+Y(v).toFixed(1)+'" r="5.5" fill="'+c('--crit')+'" stroke="'+c('--surface')+'" stroke-width="2"/>'; });
-    s+='<text x="'+L+'" y="'+(H-9)+'" font-size="10" fill="'+c('--ink-3')+'">'+esc(CP.semanas[0])+'</text>';
-    s+='<text x="'+(L+pw/2)+'" y="'+(H-9)+'" text-anchor="middle" font-size="10" fill="'+c('--ink-3')+'">'+esc(CP.semanas[Math.floor(n/2)])+'</text>';
-    s+='<text x="'+(W-R)+'" y="'+(H-9)+'" text-anchor="end" font-size="10" fill="'+c('--ink-3')+'">'+esc(CP.semanas[n-1])+'</text>';
+    // [M1] rotulo do limite, FIXO na margem reservada (x > W-R), fora da area
+    // plotada - nunca sobre a curva, a faixa ou a linha pontilhada, e o mesmo
+    // lugar com ou sem zoom (regra 18).
+    s+='<line x1="'+(W-R+14)+'" y1="'+(T+2)+'" x2="'+(W-R+14)+'" y2="'+(H-B-2)+'" stroke="'+c('--line')+'" stroke-width="1"/>';
+    var yMid=(T+H-B)/2;
+    s+='<text x="'+(W-R+24)+'" y="'+(yMid-8)+'" font-size="10" font-weight="600" font-family="IBM Plex Mono,monospace" fill="'+c('--crit')+'">'+(simples()?'limite':'UCL/LCL')+'</text>';
+    s+='<text x="'+(W-R+24)+'" y="'+(yMid+7)+'" font-size="10" font-weight="600" font-family="IBM Plex Mono,monospace" fill="'+c('--crit')+'">'+(simples()?'do normal':'(Laney)')+'</text>';
+    s+='<g clip-path="url(#'+clip+')"><path d="'+pathOf(CP.taxa)+'" fill="none" stroke="'+c('--accent')+'" stroke-width="2" stroke-linejoin="round"/>';
+    for(var q=i0;q<=i1;q++){ if(CP.fora[q]) s+='<circle cx="'+X(q).toFixed(1)+'" cy="'+Y(CP.taxa[q]).toFixed(1)+'" r="5.5" fill="'+c('--crit')+'" stroke="'+c('--surface')+'" stroke-width="2"/>'; }
+    s+='</g>';
+    s+='<text x="'+L+'" y="'+(H-9)+'" font-size="10" fill="'+c('--ink-3')+'">'+esc(CP.semanas[i0])+'</text>';
+    s+='<text x="'+(L+pw/2)+'" y="'+(H-9)+'" text-anchor="middle" font-size="10" fill="'+c('--ink-3')+'">'+esc(CP.semanas[Math.floor((i0+i1)/2)])+'</text>';
+    s+='<text x="'+(W-R)+'" y="'+(H-9)+'" text-anchor="end" font-size="10" fill="'+c('--ink-3')+'">'+esc(CP.semanas[i1])+'</text>';
     el.innerHTML=s+'</svg>';
-    crosshair(el,{W:W,H:H,L:L,R:R,T:T,B:B,n:n,X:X,Y:function(i){return Y(CP.taxa[i]);},
+    crosshair(el,{W:W,H:H,L:L,R:R,T:T,B:B,n:n,i0:i0,i1:i1,X:X,Y:function(i){return Y(CP.taxa[i]);},
       color:function(i){ return CP.fora[i]?c('--crit'):c('--accent'); },
       tip:function(i){
         var artefato=CP.classificacao[i]==='artefato_censura';
@@ -258,6 +324,20 @@
           '<br><b>'+nf(CP.taxa[i],2)+'%</b> '+(simples()?'voltaram':'de itens cancelados')+
           (artefato?('<br><b>'+(simples()?'sem tempo de o cancelamento aparecer':'artefato de medição · censura à direita')+'</b>'):'');
       }});
+    // [ZOOM] so no eixo do tempo (regra 18) - os limites (banda, UCL/LCL) sao
+    // sempre os do periodo inteiro; o zoom muda so o que se ve.
+    function idxDe(px){ return i0+(px-L)/pw*(i1-i0); }
+    function janela(a,b){
+      a=Math.max(0,Math.floor(a)); b=Math.min(n-1,Math.ceil(b));
+      if(b-a<4){ var m=(a+b)/2; a=Math.max(0,Math.round(m-2)); b=Math.min(n-1,a+4); }
+      if(a<=0 && b>=n-1) delete ZOOM[el.id]; else ZOOM[el.id]={i0:a,i1:b};
+      cartaPLaney(el);
+    }
+    zoomavel(el,{W:W,H:H,L:L,R:R,T:T,B:B,xy:false,
+      aplicar:function(x0,x1){ janela(idxDe(x0),idxDe(x1)); },
+      roda:function(f,px){ var m=idxDe(px); janela(m-(m-i0)*f, m+(i1-m)*f); },
+      reset:function(){ delete ZOOM[el.id]; cartaPLaney(el); }});
+    zoomBar(el,!!z,function(){ delete ZOOM[el.id]; cartaPLaney(el); });
   }
 
   function linhaMes(el,vals,counts){
@@ -330,47 +410,73 @@
   /* Dispersao volume x taxa, por PRODUTO (chave 'p', nao 'g' - unico uso desta
      dimensao no dashboard, por isso o filtro esta fixo em 'p' aqui dentro). */
   function scatter(el,pts){
-    var W=880,H=330,L=54,R=170,T=18,B=42, pw=W-L-R, ph=H-T-B;
-    var xmax=Math.max.apply(null,pts.map(function(p){return p.x;}))*1.12||1;
-    var ymax=Math.max.apply(null,pts.map(function(p){return p.y;}))*1.18||1;
+    // [ZOOM] L alargado (era 54): a uma bolha no menor valor de X, o CENTRO
+    // cai exatamente em x=L - com raio ate 30px, ela encostava nos rotulos
+    // do eixo vertical (2,4% / 4,9% / 7,3%). Rotulo do eixo tambem recuado
+    // (L-38, nao L-7) para sobrar um vao limpo entre texto e bolha.
+    var W=880,H=330,L=95,R=170,T=18,B=42, pw=W-L-R, ph=H-T-B;
+    var xmaxTotal=Math.max.apply(null,pts.map(function(p){return p.x;}))*1.12||1;
+    var ymaxTotal=Math.max.apply(null,pts.map(function(p){return p.y;}))*1.18||1;
     var rmax=Math.max.apply(null,pts.map(function(p){return p.r;}))||1;
-    function X(v){return L+(pw*v)/xmax;} function Y(v){return T+ph-(ph*v)/ymax;}
-    var any=sel.p.length>0, ramp=RAMP();
+    var z=ZOOM[el.id], xa=z?z.x0:0, xb=z?z.x1:xmaxTotal, ya=z?z.y0:0, yb=z?z.y1:ymaxTotal;
+    function X(v){return L+(pw*(v-xa))/(xb-xa);} function Y(v){return T+ph-(ph*(v-ya))/(yb-ya);}
+    function fmtX(v){ var span=xb-xa; return span<4000 ? nf(v,0) : nf(v/1000, span<40000?1:0)+' mil'; }
+    var any=sel.p.length>0, ramp=RAMP(), clip='clip-'+el.id;
     var s=sv(W,H);
+    s+='<defs><clipPath id="'+clip+'"><rect x="'+L+'" y="'+T+'" width="'+pw+'" height="'+ph+'"/></clipPath></defs>';
     for(var gy=0;gy<=4;gy++){
       var yy=T+ph-(ph*gy)/4;
       s+='<line x1="'+L+'" y1="'+yy+'" x2="'+(W-R)+'" y2="'+yy+'" stroke="'+c('--line')+'" stroke-width="1"/>';
-      s+='<text x="'+(L-7)+'" y="'+(yy+3.5)+'" text-anchor="end" font-size="10" font-family="IBM Plex Mono,monospace" fill="'+c('--ink-3')+'">'+nf(ymax*gy/4,1)+'%</text>';
+      s+='<text x="'+(L-38)+'" y="'+(yy+3.5)+'" text-anchor="end" font-size="10" font-family="IBM Plex Mono,monospace" fill="'+c('--ink-3')+'">'+nf(ya+(yb-ya)*gy/4,1)+'%</text>';
     }
-    for(var gx=1;gx<=4;gx++){
+    for(var gx=(z?0:1);gx<=4;gx++){
       var xx=L+(pw*gx)/4;
-      s+='<text x="'+xx+'" y="'+(T+ph+15)+'" text-anchor="middle" font-size="9.5" font-family="IBM Plex Mono,monospace" fill="'+c('--ink-3')+'">'+nf(xmax*gx/4/1000,1)+' mil</text>';
+      s+='<text x="'+(gx?xx:xx+2)+'" y="'+(T+ph+15)+'" text-anchor="'+(gx?'middle':'start')+'" font-size="9.5" font-family="IBM Plex Mono,monospace" fill="'+c('--ink-3')+'">'+fmtX(xa+(xb-xa)*gx/4)+'</text>';
     }
     s+='<text x="'+(L+pw/2)+'" y="'+(H-6)+'" text-anchor="middle" font-size="10.5" fill="'+c('--ink-3')+'">'+(simples()?'itens vendidos →':'volume de itens →')+'</text>';
-    var geoms=pts.map(function(p,i){
-      var r=8+22*Math.sqrt(p.r/rmax), on=!any||sel.p.indexOf(p.pi)>=0;
-      return {p:p,i:i,r:r,on:on,cx:X(p.x),cy:Y(p.y)};
+    // bolhas maiores por baixo (continuam clicaveis as pequenas por cima)
+    var vis=pts.map(function(p,i){ var r=8+22*Math.sqrt(p.r/rmax); return {p:p,i:i,r:r,cx:X(p.x),cy:Y(p.y)}; })
+      .filter(function(b){ return b.cx>=L-b.r && b.cx<=W-R+b.r && b.cy>=T-b.r && b.cy<=T+ph+b.r; });
+    s+='<g clip-path="url(#'+clip+')">';
+    vis.slice().sort(function(a,b){return b.r-a.r;}).forEach(function(g){
+      var on=!any||sel.p.indexOf(g.p.pi)>=0;
+      var tp=esc(g.p.k)+'<br><b>'+nf(g.p.y,2)+'%</b> '+(simples()?'voltam':'de taxa')+'<br>'+nf(g.p.x,0)+' itens<br>£ '+nf(g.p.r,0)+' '+(simples()?'devolvidos':'estornados')+clickHint(any&&on);
+      s+='<circle cx="'+g.cx.toFixed(1)+'" cy="'+g.cy.toFixed(1)+'" r="'+g.r.toFixed(1)+'" fill="'+ramp[g.i%ramp.length]+'" fill-opacity="'+(on?0.88:0.2)+'" stroke="'+(any&&on?c('--ink'):c('--surface'))+'" stroke-width="'+(any&&on?2:1.5)+'" data-tip="'+attr(tp)+'" data-flt="p:'+g.p.pi+'"/>';
     });
-    // circulos primeiro (ordem original, nao afeta z-order por tamanho)
-    geoms.forEach(function(g){
-      var tp=esc(g.p.k)+'<br><b>'+nf(g.p.y,2)+'%</b> '+(simples()?'voltam':'de taxa')+'<br>'+nf(g.p.x,0)+' itens<br>£ '+nf(g.p.r,0)+' '+(simples()?'devolvidos':'estornados')+clickHint(any&&g.on);
-      s+='<circle cx="'+g.cx.toFixed(1)+'" cy="'+g.cy.toFixed(1)+'" r="'+g.r.toFixed(1)+'" fill="'+ramp[g.i%ramp.length]+'" fill-opacity="'+(g.on?0.88:0.2)+'" stroke="'+(any&&g.on?c('--ink'):c('--surface'))+'" stroke-width="'+(any&&g.on?2:1.5)+'" data-tip="'+attr(tp)+'" data-flt="p:'+g.p.pi+'"/>';
-    });
-    // [I3] rotulos com prevencao de colisao: bolhas maiores tem prioridade;
-    // rotulo que colidiria com um ja colocado e omitido (a informacao continua
-    // no hover, que ja existe em todo ponto - nunca so a cor carrega identidade).
-    var placed=[];
-    geoms.slice().sort(function(a,b){return b.r-a.r;}).forEach(function(g){
-      var lab=g.p.k.length>22?g.p.k.slice(0,21)+'…':g.p.k;
-      var lx=g.cx+g.r+6, ly=g.cy+4;
-      var boxW=lab.length*5.4+4, boxH=16;
-      var box={x0:lx-2, y0:ly-boxH+2, x1:lx+boxW, y1:ly+2};
-      var collide=placed.some(function(pb){ return !(box.x1<pb.x0||box.x0>pb.x1||box.y1<pb.y0||box.y0>pb.y1); });
-      if(collide) return;
-      placed.push(box);
-      s+='<text x="'+lx.toFixed(1)+'" y="'+ly.toFixed(1)+'" font-size="9.5" fill="'+(g.on?c('--ink-2'):c('--ink-3'))+'" pointer-events="none">'+esc(lab)+'</text>';
+    s+='</g>';
+    // [I3] rotulos sem sobreposicao: a maior bolha escolhe primeiro; tenta a
+    // direita, depois a esquerda; se nao couber sem cruzar outro rotulo ou
+    // outra bolha, fica so no balao (hover). Com zoom, as bolhas se afastam
+    // e mais rotulos cabem.
+    var postos=[], fs=9.5;
+    vis.slice().sort(function(a,b){return b.r-a.r;}).forEach(function(g){
+      var lab=g.p.k.length>26?g.p.k.slice(0,25)+'…':g.p.k;
+      var w=larguraTexto(lab,fs)+2, h=fs+3, y=g.cy-h/2-1;
+      var opcoes=[[g.cx+g.r+6,y],[g.cx-g.r-6-w,y]];
+      for(var k=0;k<opcoes.length;k++){
+        var bx=[opcoes[k][0],opcoes[k][1],w,h];
+        if(bx[0]<L+2 || bx[0]+w>W-4 || bx[1]<T || bx[1]+h>T+ph) continue;
+        var bate=postos.some(function(o){return cruza(bx,o);}) || vis.some(function(o){
+          return o!==g && cruza(bx,[o.cx-o.r,o.cy-o.r,2*o.r,2*o.r]); });
+        if(bate) continue;
+        postos.push(bx);
+        var on=!any||sel.p.indexOf(g.p.pi)>=0;
+        s+='<text x="'+bx[0].toFixed(1)+'" y="'+(bx[1]+fs).toFixed(1)+'" font-size="'+fs+'" fill="'+(on?c('--ink-2'):c('--ink-3'))+'" pointer-events="none">'+esc(lab)+'</text>';
+        break;
+      }
     });
     el.innerHTML=s+'</svg>'; wireTips(el);
+    function dado(px,py){ return [xa+(px-L)/pw*(xb-xa), ya+(T+ph-py)/ph*(yb-ya)]; }
+    function janela(x0,x1,y0,y1){
+      x0=Math.max(0,x0); y0=Math.max(0,y0); x1=Math.min(xmaxTotal,x1); y1=Math.min(ymaxTotal,y1);
+      if(x1-x0>=xmaxTotal*0.98 && y1-y0>=ymaxTotal*0.98) delete ZOOM[el.id]; else ZOOM[el.id]={x0:x0,x1:x1,y0:y0,y1:y1};
+      scatter(el,pts);
+    }
+    zoomavel(el,{W:W,H:H,L:L,R:R,T:T,B:B,xy:true,
+      aplicar:function(px0,px1,py0,py1){ var a=dado(px0,py1), b=dado(px1,py0); janela(a[0],b[0],a[1],b[1]); },
+      roda:function(f,px,py){ var m=dado(px,py); janela(m[0]-(m[0]-xa)*f, m[0]+(xb-m[0])*f, m[1]-(m[1]-ya)*f, m[1]+(yb-m[1])*f); },
+      reset:function(){ delete ZOOM[el.id]; scatter(el,pts); }});
+    zoomBar(el,!!z,function(){ delete ZOOM[el.id]; scatter(el,pts); });
   }
 
   /* ================= dashboard ================= */
