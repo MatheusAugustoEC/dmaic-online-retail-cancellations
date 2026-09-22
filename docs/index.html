@@ -96,6 +96,8 @@ th[aria-sort] .arw{opacity:1; color:var(--accent)}
 .guard .k{font-family:"IBM Plex Mono",monospace; font-size:9.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-3)}
 .guard .v{font-family:Fraunces,serif; font-weight:700; font-size:22px; margin-top:4px; font-variant-numeric:tabular-nums}
 .guard .d{font-size:12px; color:var(--ink-3); margin-top:2px; font-weight:500}
+.guard .v.nd{color:var(--ink-3); font-weight:600; font-style:italic}
+.tag-pend{display:inline-block; font-size:9.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--warn); border:1px solid var(--warn); border-radius:3px; padding:1px 5px; margin-left:6px; white-space:nowrap; vertical-align:middle}
 .disclaimer{margin-top:22px; border-left:3px solid var(--line-2); padding:2px 0 2px 14px; font-size:13px; color:var(--ink-3); max-width:78ch}
 .heroband{font-size:12.5px; color:var(--ink-3); max-width:80ch; margin:6px 0 22px; line-height:1.55}
 
@@ -209,7 +211,7 @@ dd{margin:2px 0 0; color:var(--ink-2)}
 .mini:hover{border-color:var(--accent); color:var(--accent)}
 .cardhead{display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap}
 .tctl{display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:10px}
-svg{display:block; width:100%; height:auto}
+svg{display:block; width:100%; height:auto; user-select:none; -webkit-user-select:none}
 @media (max-width:640px){ .hero{grid-template-columns:1fr} .guard,.kpi{border-right:0; border-bottom:1px solid var(--line)} .toc ol{columns:1}
   /* [M3] plano de controle vira cartoes empilhados no celular, nao tabela larga comprimida */
   .controltable thead{display:none}
@@ -290,7 +292,7 @@ svg{display:block; width:100%; height:auto}
     <div class="guard"><div class="k"><span class="sim">Faturamento</span><span class="tec">Receita líquida</span></div><div class="v mono" id="g-receita"></div><div class="d">janela madura</div></div>
     <div class="guard"><div class="k"><span class="sim">Pedidos</span><span class="tec">Faturas</span></div><div class="v mono" id="g-pedidos"></div><div class="d">janela madura</div></div>
     <div class="guard"><div class="k">Clientes ativos</div><div class="v mono" id="g-clientes"></div><div class="d">janela madura</div></div>
-    <div class="guard"><div class="k"><span class="sim">Abandono no checkout</span><span class="tec">Taxa de abandono</span></div><div class="v mono">n/d</div><div class="d">não mensurável com este dado</div></div>
+    <div class="guard"><div class="k"><span class="sim">Abandono no checkout</span><span class="tec">Taxa de abandono</span></div><div class="v mono nd">n/d</div><div class="d">não medido por desenho — ver Relatório, seção 11</div></div>
   </div>
   <p class="cardnote sim" style="margin-top:-6px">Os três primeiros existem para impedir uma armadilha: <b>é fácil reduzir cancelamento vendendo menos ou dificultando demais o checkout.</b> Se algum cair, o ganho é falso. O quarto — quanto isso afasta cliente no checkout — esta base não registra; só um teste real mediria (ver Relatório, seção 11).</p>
   <p class="cardnote tec" style="margin-top:-6px">Guardrails contra otimização local. Taxa de abandono de checkout é estruturalmente não mensurável nesta base (ausência de contrafactual/carrinho abandonado) — ver Improve, ponto de indiferença.</p>
@@ -327,7 +329,7 @@ svg{display:block; width:100%; height:auto}
         <tr><td data-label="O que acompanhar"><span class="sim">Pedidos</span><span class="tec">Volume total de pedidos</span></td><td class="mono" data-label="Alarme em"><span class="sim">queda &gt;20% vs. média dos 3 meses anteriores</span><span class="tec">queda &gt;20% vs. média móvel de 3 meses</span></td><td data-label="Frequência">Mensal</td><td data-label="Responsável">Ger. Operações</td><td data-label="O que fazer se passar">Mesma ação acima</td></tr>
         <tr><td data-label="O que acompanhar"><span class="sim">Abandono no checkout (por fatura)</span><span class="tec">Taxa de abandono (por fatura)</span></td><td class="mono" data-label="Alarme em">&gt; 2,38%</td><td data-label="Frequência">Semanal (rollout)</td><td data-label="Responsável">Ger. Operações</td><td data-label="O que fazer se passar">Reverter a fricção imediatamente no segmento</td></tr>
         <tr><td data-label="O que acompanhar"><span class="sim">Produto entrando na lista de risco</span><span class="tec">Taxa por StockCode (H4)</span></td><td class="mono" data-label="Alarme em">≥ 2x a média geral (limite inferior do IC)</td><td data-label="Frequência">Mensal</td><td data-label="Responsável">Qualidade / Estoque</td><td data-label="O que fazer se passar"><span class="sim">Adicionar à lista de conferência dupla</span><span class="tec">Adicionar à lista de conferência dupla (poka-yoke)</span></td></tr>
-        <tr><td data-label="O que acompanhar"><span class="sim">Erro de separação em pedido grande do Reino Unido</span><span class="tec">Taxa de erro de picking, Quantity alta × UK</span></td><td class="mono" data-label="Alarme em"><span class="sim">a definir (sem dado de linha-base)</span><span class="tec">a definir — sem linha-base de erro de picking nesta base</span></td><td data-label="Frequência"><span class="sim">Amostral, por pedido grande do Reino Unido</span><span class="tec">Amostral (pedidos Quantity Q4 × UK)</span></td><td data-label="Responsável">Ger. Estoque / Armazém</td><td data-label="O que fazer se passar">Revisar procedimento de separação para a faixa</td></tr>
+        <tr><td data-label="O que acompanhar"><span class="sim">Erro de separação em pedido grande do Reino Unido</span><span class="tec">Taxa de erro de picking, Quantity alta × UK</span></td><td class="mono" data-label="Alarme em"><span class="sim">a definir (sem dado de linha-base)</span><span class="tec">a definir — sem linha-base de erro de picking nesta base</span><span class="tag-pend">pendente</span></td><td data-label="Frequência"><span class="sim">Amostral, por pedido grande do Reino Unido</span><span class="tec">Amostral (pedidos Quantity Q4 × UK)</span></td><td data-label="Responsável">Ger. Estoque / Armazém</td><td data-label="O que fazer se passar">Revisar procedimento de separação para a faixa</td></tr>
       </tbody>
     </table>
   </div>

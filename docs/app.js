@@ -400,8 +400,8 @@
           ? esc(r.k)+' · '+esc(FAIXA[j])+'<br><b>'+nf(v,2)+'%</b> '+(simples()?'voltam':'de taxa')+'<br>'+nf(r.n[j],0)+' itens · £ '+nf(r.e[j],0)+clickHint(picked)
           : esc(r.k)+' · '+esc(FAIXA[j])+'<br>'+(simples()?'poucos itens para confiar no número':'n insuficiente (&lt;'+MIN_N_MATRIX+')')+'<br>'+nf(r.n[j],0)+' itens'+clickHint(picked);
         s+='<rect x="'+(L+cw*j+2)+'" y="'+(y+2)+'" width="'+(cw-4)+'" height="'+(rh-4)+'" fill="'+fillColor+'" fill-opacity="'+(active?1:0.28)+'"'+(!suficiente?' stroke="'+c('--line-2')+'" stroke-width="1" stroke-dasharray="3 2"':'')+(picked?' stroke="'+c('--ink')+'" stroke-width="2.5"':'')+' data-tip="'+attr(tp)+'" data-flt="c:'+key+'"/>';
-        var label = suficiente ? nf(v,1) : (simples()?'n insuf.':'n<'+MIN_N_MATRIX);
-        s+='<text x="'+(L+cw*j+cw/2)+'" y="'+(y+rh/2+4)+'" text-anchor="middle" font-size="'+(suficiente?11:9)+'" font-weight="600" font-family="IBM Plex Mono,monospace" fill="'+(dark&&active?c('--surface'):(suficiente?c('--ink'):c('--ink-3')))+'" fill-opacity="'+(active?1:0.5)+'" pointer-events="none">'+label+'</text>';
+        var label = suficiente ? nf(v,1) : '—';
+        s+='<text x="'+(L+cw*j+cw/2)+'" y="'+(y+rh/2+4)+'" text-anchor="middle" font-size="11" font-weight="600" font-family="IBM Plex Mono,monospace" fill="'+(dark&&active?c('--surface'):(suficiente?c('--ink'):c('--ink-3')))+'" fill-opacity="'+(active?1:0.5)+'" pointer-events="none">'+label+'</text>';
       });
     });
     el.innerHTML=s+'</svg>'; wireTips(el);
@@ -522,6 +522,7 @@
     document.getElementById('heat-clear').hidden = sel.c.length===0;
 
     var rows=filtra(), t=soma(rows), vazio=t.it===0;
+    var semFiltro = !sel.m.length && !sel.g.length && !sel.f.length && !sel.s.length && !sel.p.length && !sel.c.length;
     document.getElementById('d-empty').hidden=!vazio;
     document.getElementById('fcount').innerHTML='<b>'+nf(t.it,0)+'</b> de '+nf(TOTAL.it,0)+' itens · <b>'+nf(100*t.it/TOTAL.it,1)+'%</b> da base';
     var taxa=vazio?0:100*t.ca/t.it;
@@ -529,7 +530,7 @@
       '<div class="kpi"><div class="k">Itens</div><div class="v">'+nf(t.it,0)+'</div><div class="s">no recorte</div></div>'+
       '<div class="kpi"><div class="k"><span class="sim">Voltam</span><span class="tec">Taxa</span></div><div class="v">'+nf(taxa,2)+'%</div><div class="s">'+(vazio||!taxa?'—':'1 a cada '+Math.round(100/taxa))+'</div></div>'+
       '<div class="kpi"><div class="k"><span class="sim">Devolvido</span><span class="tec">Estornado</span></div><div class="v">£ '+nf(t.es,0)+'</div><div class="s">'+nf(TOTAL.es?100*t.es/TOTAL.es:0,1)+'% do total</div></div>'+
-      '<div class="kpi"><div class="k"><span class="sim">Diferença da média</span><span class="tec">Δ vs. base</span></div><div class="v">'+(vazio?'—':(taxa>=TXBASE?'+':'')+nf(taxa-TXBASE,2))+'</div><div class="s">pontos percentuais</div></div>';
+      '<div class="kpi"><div class="k"><span class="sim">Diferença da média</span><span class="tec">Δ vs. base</span></div><div class="v">'+(vazio?'—':(taxa>=TXBASE?'+':'')+nf(taxa-TXBASE,2))+'</div><div class="s">'+(semFiltro?(simples()?'sem filtro, é sempre 0,00':'sem filtro vs. si mesma = 0'):'pontos percentuais')+'</div></div>';
 
     var rm=filtra(['m']), cnt=[];
     var porMes=MES.map(function(_,i){ var r=soma(rm.filter(function(x){return x.m===i;})); cnt.push(r.it); return r.it?100*r.ca/r.it:0; });

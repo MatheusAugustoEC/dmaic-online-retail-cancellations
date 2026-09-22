@@ -1,5 +1,35 @@
 # Correções da banca — registro
 
+## Rodada 3 (2026-09-22)
+
+Parecer V3: aprovado com ressalvas — nenhum achado muda número, conclusão ou decisão; todos são de interface/legibilidade. Reconferidos do zero os números críticos das rodadas anteriores (6.902 faturas, 66 produtos, £6.761 etc.), sem leftover. Confirmado por diff que `docs/entrega_dados.json` e `src/fase6_dados_entrega.py` não foram tocados nesta rodada — só `docs/app.js` e `docs/index.html`.
+
+### [V2] Zoom "não funciona" no gráfico de bolhas do Dashboard — investigado, não reproduzido com o gráfico em vista
+
+- **Achado da banca:** arrastar sobre o gráfico de dispersão só selecionava texto da página, e Ctrl+roda não mudava nada — ao contrário da carta de controle, onde a mesma interação funcionava.
+- **Investigação:** medi a posição do gráfico na carga inicial da página: o `#d-scatter` fica em `y≈3413px`, bem abaixo da janela visível de 900px de altura (o Dashboard empilha vários gráficos acima dele), enquanto a carta de controle do Painel fica em `y≈490px`, dentro da janela inicial. Uma automação que calcula a posição do elemento sem antes rolar até ele tenta arrastar/rodar fora da área visível do navegador, caindo fora do SVG — o que reproduz exatamente os sintomas relatados. Repeti o teste rolando até o gráfico primeiro (como qualquer usuário real faria antes de arrastar algo que não está vendo): o zoom funciona normalmente — arrastar amplia, "Ver tudo" aparece, Ctrl+roda funciona, sobreposição limpa em claro/escuro/Simples/Técnica.
+- **Correção aplicada (defensiva, a pedido, sem bug confirmado):** adicionado `user-select:none` a todo `<svg>` da página (`docs/index.html`), para que nenhum arrasto sobre ou perto de um gráfico jamais dispare seleção nativa de texto, mesmo em cenários de borda.
+
+### [V1] Células "n insuf."/"n<50" difíceis de escanear na matriz do Dashboard
+
+- **Antes:** células sem dado suficiente (n<50) mostravam o texto por extenso "n insuf." (Simples) ou "n<50" (Técnico) dentro da célula, bem mais longo que os números de 3-4 caracteres das outras células.
+- **Depois:** o texto foi trocado por um traço curto "—", mantendo a borda tracejada e a cor neutra já usadas para marcar essas células, e mantendo a explicação completa ("poucos itens (não colorida)" / "n<50 (não colorida)") na legenda abaixo da matriz e o "n" exato no tooltip ao passar o mouse.
+
+### [V3] Cartão "n/d" do Painel sem destaque visual
+
+- **Antes:** o cartão "Abandono no checkout" mostrava "n/d" com o mesmo peso visual dos três cartões vizinhos com números reais; a explicação só aparecia num parágrafo abaixo da linha de cartões.
+- **Depois:** o valor "n/d" ganhou estilo visualmente distinto (cor acinzentada, itálico) e a nota logo abaixo do cartão passou a dizer diretamente "não medido por desenho — ver Relatório, seção 11", em vez de "não mensurável com este dado".
+
+### [V4] Cartão "+0,00" do Dashboard sem contexto
+
+- **Antes:** o cartão "Diferença da média" mostrava "+0,00 pontos percentuais" no estado padrão (sem filtro), sem nenhuma explicação de por que era zero.
+- **Depois:** quando nenhum filtro está ativo, a legenda do cartão passa a dizer "sem filtro, é sempre 0,00" (Simples) / "sem filtro vs. si mesma = 0" (Técnico); assim que qualquer filtro é aplicado, a legenda volta ao texto normal ("pontos percentuais").
+
+### [V5] Linha "Erro de separação" do plano de controle sem indicar que o limite está pendente
+
+- **Antes:** a linha "Erro de separação em pedido grande do Reino Unido" mostrava "a definir (sem dado de linha-base)" com a mesma formatação das linhas que já têm limite definido.
+- **Depois:** adicionada uma etiqueta "PENDENTE" (cor de alerta, mesma usada em outros avisos da página) ao lado do texto "a definir", só nessa linha, para sinalizar visualmente que o limite ainda não tem dado real por trás.
+
 ## Rodada 2 (2026-09-22)
 
 Três ajustes pontuais de apresentação/interação, sem alteração de nenhum número de análise. Confirmado por diff: `docs/entrega_dados.json` e `src/fase6_dados_entrega.py` não foram tocados; só `docs/app.js` (lógica de renderização/interação) e `docs/index.html` (CSS e um trecho de texto) mudaram.
