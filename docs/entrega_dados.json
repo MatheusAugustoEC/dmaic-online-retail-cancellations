@@ -733,77 +733,89 @@
   ],
   "h4": {
     "n_produtos_avaliados": 1399,
-    "n_sinalizados": 198,
+    "n_sinalizados": 66,
+    "n_sinalizados_criterio_antigo": 198,
+    "criterio": "limite inferior do IC de Wilson >= 2x a taxa media (corrigido de taxa pontual em 2026-09-22, ver I4)",
     "top10": [
       {
         "stockcode": "22198",
         "label": "22198 · Large Popcorn Holder",
         "taxa": 20.75,
         "n": 53,
-        "vezes_media": 11.1
+        "vezes_media": 11.1,
+        "vezes_media_ic_lo": 6.4
       },
       {
         "stockcode": "21258",
         "label": "21258 · Victorian Sewing Box Large",
         "taxa": 15.25,
         "n": 59,
-        "vezes_media": 8.2
+        "vezes_media": 8.2,
+        "vezes_media_ic_lo": 4.4
       },
       {
         "stockcode": "75049L",
         "label": "75049L · Large Circular Mirror Mobile",
         "taxa": 14.58,
         "n": 96,
-        "vezes_media": 7.8
+        "vezes_media": 7.8,
+        "vezes_media_ic_lo": 4.8
       },
       {
         "stockcode": "23111",
         "label": "23111 · Parisienne Sewing Box",
         "taxa": 14.47,
         "n": 76,
-        "vezes_media": 7.8
+        "vezes_media": 7.8,
+        "vezes_media_ic_lo": 4.4
       },
       {
         "stockcode": "22891",
         "label": "22891 · Tea For One Polkadot",
         "taxa": 13.95,
         "n": 86,
-        "vezes_media": 7.5
+        "vezes_media": 7.5,
+        "vezes_media_ic_lo": 4.4
       },
       {
         "stockcode": "22364",
         "label": "22364 · Glass Jar Digestive Biscuits",
         "taxa": 13.7,
         "n": 73,
-        "vezes_media": 7.3
+        "vezes_media": 7.3,
+        "vezes_media_ic_lo": 4.1
       },
       {
         "stockcode": "22778",
         "label": "22778 · Glass Cloche Small",
         "taxa": 13.58,
         "n": 81,
-        "vezes_media": 7.3
+        "vezes_media": 7.3,
+        "vezes_media_ic_lo": 4.2
       },
       {
         "stockcode": "84949",
         "label": "84949 · Silver Hanging T-light Holder",
         "taxa": 13.22,
         "n": 174,
-        "vezes_media": 7.1
+        "vezes_media": 7.1,
+        "vezes_media_ic_lo": 4.8
       },
       {
         "stockcode": "23110",
         "label": "23110 · Parisienne Key Cabinet",
         "taxa": 13.04,
         "n": 161,
-        "vezes_media": 7.0
+        "vezes_media": 7.0,
+        "vezes_media_ic_lo": 4.7
       },
       {
         "stockcode": "22797",
         "label": "22797 · Chest of Drawers Gingham Heart",
         "taxa": 12.9,
         "n": 62,
-        "vezes_media": 6.9
+        "vezes_media": 6.9,
+        "vezes_media_ic_lo": 3.6
       }
     ]
   },
@@ -836,12 +848,12 @@
       "h1_receita": 233002.96,
       "h2_pct": 14.3,
       "h2_receita": 34435.88,
-      "h4_pct": 40.4,
-      "h4_receita": 164305.89,
-      "uniao_pct": 62.9,
-      "uniao_receita": 276304.92,
-      "sem_explicacao_pct": 37.1,
-      "sem_explicacao_receita": 36871.05
+      "h4_pct": 23.4,
+      "h4_receita": 56433.46,
+      "uniao_pct": 51.8,
+      "uniao_receita": 265320.06,
+      "sem_explicacao_pct": 48.2,
+      "sem_explicacao_receita": 47855.91
     }
   },
   "improve": {
@@ -901,6 +913,15 @@
         "npr": 90
       }
     ]
+  },
+  "controle_alarme": {
+    "limiar_antigo_pct": 10,
+    "limiar_novo_pct": 20,
+    "base_antiga": "mes anterior",
+    "base_nova": "media movel dos 3 meses anteriores",
+    "maior_queda_legitima_receita_pct": -14.2,
+    "maior_queda_legitima_pedidos_pct": -10.7,
+    "nota": "Limiar antigo (10% vs. mes anterior) disparava em meses legitimos da propria serie historica (fev e abr/2011). Novo limiar calibrado para nao disparar em nenhum mes legitimo observado nesta janela (maior queda legitima: receita -14,2%%, pedidos -10,7%%, excluindo dez/2011 que e mes parcial conhecido)."
   },
   "qualidade": {
     "customerid_nulo_pct": 24.93,

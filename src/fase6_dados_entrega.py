@@ -269,21 +269,44 @@ out["pareto_comparacao"] = [
     for i in uniao_idx
 ]
 
-# H4 -- produtos sinalizados (>=2x a taxa media, n>=50) -- mesma base de sc_valid
-h4_flagged = sc_valid[sc_valid["rate_ratio"] >= 2].sort_values("taxa", ascending=False)
+# [I4] CORRECAO POS-BANCA (2026-09-22): o corte original (taxa PONTUAL >=2x a
+# media, n>=50) nao controla falso positivo - com n=50 e a taxa media da base,
+# um produto sem nenhum problema real tem ~1/4 de chance de bater "2x a media"
+# so por acaso. Corrigido para usar o LIMITE INFERIOR do IC de Wilson da taxa
+# (mesmo tipo de intervalo ja usado nos exemplos 21232/21231 do Relatorio) -
+# criterio mais conservador, reduz de 198 para os produtos abaixo.
+sc_valid["ci_lo"] = sc_valid.apply(lambda r: proportion_confint(r["d"], r["n"], method="wilson")[0], axis=1)
+sc_valid["rate_ratio_ic_lo"] = sc_valid["ci_lo"] / overall_rate
+h4_flagged = sc_valid[sc_valid["rate_ratio_ic_lo"] >= 2].sort_values("taxa", ascending=False)
+h4_flagged_old_criterio = sc_valid[sc_valid["rate_ratio"] >= 2]
 out["h4"] = {
     "n_produtos_avaliados": int(len(sc_valid)),
     "n_sinalizados": int(len(h4_flagged)),
+    "n_sinalizados_criterio_antigo": int(len(h4_flagged_old_criterio)),
+    "criterio": "limite inferior do IC de Wilson >= 2x a taxa media (corrigido de taxa pontual em 2026-09-22, ver I4)",
     "top10": [
-        {"stockcode": idx, "label": descricao(idx), "taxa": round(float(r["taxa"]) * 100, 2), "n": int(r["n"]), "vezes_media": round(float(r["rate_ratio"]), 1)}
+        {"stockcode": idx, "label": descricao(idx), "taxa": round(float(r["taxa"]) * 100, 2), "n": int(r["n"]),
+         "vezes_media": round(float(r["rate_ratio"]), 1), "vezes_media_ic_lo": round(float(r["rate_ratio_ic_lo"]), 1)}
         for idx, r in h4_flagged.head(10).iterrows()
     ],
 }
+h4_flagged_codes = set(h4_flagged.index)
 
 # ---------------------------------------------------------------------------
 # RELATORIO - numeros herdados dos memorandos de fase (copiados aqui como
 # valores fixos calculados alhures no pipeline, nao recalculados)
 # ---------------------------------------------------------------------------
+# [I4] quantificacao recomputada direto dos dados (nao mais hardcoded) para
+# refletir o novo conjunto do H4 (limite inferior do IC, nao taxa pontual).
+_defects = baseline_pop[baseline_pop["defect"] == 1].copy()
+_total_defeitos = len(_defects)
+_total_receita = _defects["revenue"].sum()
+_flag_h1 = _defects["qty_quartil"] == "Q4"
+_flag_h2 = _defects["country_group"] == "Resto"
+_flag_h4 = _defects["StockCode"].isin(h4_flagged_codes)
+_uniao = _flag_h1 | _flag_h2 | _flag_h4
+_sem_explicacao = ~_uniao
+
 out["analyze"] = {
     "pareamento_pct": 85.0,
     "pareamento_pct_fase0": 81.8,
@@ -301,15 +324,17 @@ out["analyze"] = {
     "h3_efeito_pp": 0.138,
     "h3_p": 0.129,
     "quantificacao": {
-        "total_defeitos": 4957,
-        "total_receita": 313175.97,
-        "h1_pct": 24.9, "h1_receita": 233002.96,
-        "h2_pct": 14.3, "h2_receita": 34435.88,
-        "h4_pct": 40.4, "h4_receita": 164305.89,
-        "uniao_pct": 62.9, "uniao_receita": 276304.92,
-        "sem_explicacao_pct": 37.1, "sem_explicacao_receita": 36871.05,
+        "total_defeitos": int(_total_defeitos),
+        "total_receita": round(float(_total_receita), 2),
+        "h1_pct": round(float(_flag_h1.mean() * 100), 1), "h1_receita": round(float(_defects.loc[_flag_h1, "revenue"].sum()), 2),
+        "h2_pct": round(float(_flag_h2.mean() * 100), 1), "h2_receita": round(float(_defects.loc[_flag_h2, "revenue"].sum()), 2),
+        "h4_pct": round(float(_flag_h4.mean() * 100), 1), "h4_receita": round(float(_defects.loc[_flag_h4, "revenue_pareto"].sum()), 2),
+        "uniao_pct": round(float(_uniao.mean() * 100), 1), "uniao_receita": round(float(_defects.loc[_uniao, "revenue"].sum()), 2),
+        "sem_explicacao_pct": round(float(_sem_explicacao.mean() * 100), 1), "sem_explicacao_receita": round(float(_defects.loc[_sem_explicacao, "revenue"].sum()), 2),
     },
 }
+print(f"[I4] H4 corrigido (IC Wilson >=2x): {len(h4_flagged_codes)} produtos (era {len(h4_flagged_old_criterio)} pelo criterio antigo)")
+print(f"[I4] quantificacao: H4={out['analyze']['quantificacao']['h4_pct']}%% uniao={out['analyze']['quantificacao']['uniao_pct']}%% sem_explicacao={out['analyze']['quantificacao']['sem_explicacao_pct']}%%")
 
 # ---------------------------------------------------------------------------
 # [C2] CORRECAO POS-BANCA (2026-09-22): a conta do Improve usava contagem de
@@ -384,6 +409,39 @@ print(f"[C2] faturas_total={faturas_total} faturas_com_cancelamento={faturas_com
       f"faturas_legitimas={faturas_legitimas} ({faturas_legitimas/faturas_total*100:.1f}%%)")
 print(f"[C2] cenarios: {cenarios}")
 print(f"[C2] experimento: n_por_braco={_n_por_braco:.1f} taxa_base_fatura={_taxa_base_fatura*100:.3f}%%")
+
+# ---------------------------------------------------------------------------
+# [I7] CORRECAO POS-BANCA (2026-09-22): o alarme "queda >10% vs. mes anterior"
+# nao sobrevive a propria serie historica do projeto (fev/2011 e abr/2011 ja
+# caem >20% mes a mes sem nenhum problema real). Testado: (a) limites I-MR
+# sobre a serie de variacao % mes a mes - ficam tao largos (~-75% a -85%) que
+# nunca disparariam, inuteis como alarme; (b) desvio vs. media movel dos 3
+# meses anteriores - historicamente mais estavel (maior queda legitima,
+# excluindo dez/2011 que e mes parcial conhecido, fica em -14,2% receita e
+# -10,7% pedidos). Adotado (b): alarme por desvio da media movel de 3 meses,
+# limiar de 20% (acima de qualquer queda legitima observada nesta unica
+# janela). Limitacao declarada: um ano so de dado nao sustenta comparacao
+# ano-contra-ano nem decomposicao formal de sazonalidade - o limiar aqui e
+# calibrado nos proprios dados do projeto, nao em multiplos ciclos.
+_g_ctrl = orders_all.copy()  # ano inteiro (holdout ja aberto, uso legitimo para calibrar limiar de alarme)
+_g_ctrl["month"] = _g_ctrl["InvoiceDate"].dt.to_period("M")
+_g_agg = _g_ctrl.groupby("month").agg(receita=("revenue", "sum"), pedidos=("InvoiceNo", "nunique"))
+_g_agg["receita_ma3"] = _g_agg["receita"].rolling(3).mean().shift(1)
+_g_agg["pedidos_ma3"] = _g_agg["pedidos"].rolling(3).mean().shift(1)
+_g_agg["receita_dev_ma3"] = (_g_agg["receita"] / _g_agg["receita_ma3"] - 1) * 100
+_g_agg["pedidos_dev_ma3"] = (_g_agg["pedidos"] / _g_agg["pedidos_ma3"] - 1) * 100
+_dev_r_hist = _g_agg["receita_dev_ma3"].dropna().iloc[:-1]  # exclui dez/2011 (parcial, 9 dias)
+_dev_p_hist = _g_agg["pedidos_dev_ma3"].dropna().iloc[:-1]
+out["controle_alarme"] = {
+    "limiar_antigo_pct": 10,
+    "limiar_novo_pct": 20,
+    "base_antiga": "mes anterior",
+    "base_nova": "media movel dos 3 meses anteriores",
+    "maior_queda_legitima_receita_pct": round(float(_dev_r_hist.min()), 1),
+    "maior_queda_legitima_pedidos_pct": round(float(_dev_p_hist.min()), 1),
+    "nota": "Limiar antigo (10% vs. mes anterior) disparava em meses legitimos da propria serie historica (fev e abr/2011). Novo limiar calibrado para nao disparar em nenhum mes legitimo observado nesta janela (maior queda legitima: receita -14,2%%, pedidos -10,7%%, excluindo dez/2011 que e mes parcial conhecido).",
+}
+print(f"[I7] maior queda legitima (media movel 3m): receita={out['controle_alarme']['maior_queda_legitima_receita_pct']}%% pedidos={out['controle_alarme']['maior_queda_legitima_pedidos_pct']}%%")
 
 out["qualidade"] = {
     "customerid_nulo_pct": 24.93,

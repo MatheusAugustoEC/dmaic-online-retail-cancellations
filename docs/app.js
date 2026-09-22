@@ -232,7 +232,17 @@
     function pathOf(arr){ return 'M'+arr.map(function(v,i){return X(i).toFixed(1)+' '+Y(v).toFixed(1);}).join('L'); }
     s+='<path d="'+pathOf(CP.ucl)+'" fill="none" stroke="'+c('--crit')+'" stroke-width="1.3" stroke-dasharray="5 4"/>';
     s+='<path d="'+pathOf(CP.lcl)+'" fill="none" stroke="'+c('--crit')+'" stroke-width="1.3" stroke-dasharray="5 4"/>';
-    s+='<text x="'+(W-R-4)+'" y="'+(Y(CP.ucl[n-1])-7)+'" text-anchor="end" font-size="10.5" font-weight="600" font-family="IBM Plex Mono,monospace" fill="'+c('--crit')+'">'+(simples()?'limite do normal':'UCL (Laney)')+'</text>';
+    // [M1] rotulo do limite ancorado no ponto mais BAIXO da curva de UCL (onde
+    // ha mais folga acima da linha), nao no ultimo ponto - la a UCL cai perto
+    // do LCL na semana final e o rotulo sobrepunha a propria linha pontilhada.
+    var idxUclMin = CP.ucl.indexOf(Math.min.apply(null, CP.ucl));
+    var yLabelUcl = Math.max(T + 10, Y(CP.ucl[idxUclMin]) - 14);
+    var lblUcl = simples()?'limite do normal':'UCL (Laney)';
+    var xUcl = X(idxUclMin), halfW = lblUcl.length*3.2;
+    var anchorUcl='middle';
+    if(xUcl+halfW > W-R){ anchorUcl='end'; xUcl = W-R; }
+    else if(xUcl-halfW < L){ anchorUcl='start'; xUcl = L; }
+    s+='<text x="'+xUcl.toFixed(1)+'" y="'+yLabelUcl+'" text-anchor="'+anchorUcl+'" font-size="10.5" font-weight="600" font-family="IBM Plex Mono,monospace" fill="'+c('--crit')+'">'+lblUcl+'</text>';
     var d=''; CP.taxa.forEach(function(v,i){ d+=(i?'L':'M')+X(i).toFixed(1)+' '+Y(v).toFixed(1); });
     s+='<path d="'+d+'" fill="none" stroke="'+c('--accent')+'" stroke-width="2" stroke-linejoin="round"/>';
     CP.taxa.forEach(function(v,i){ if(CP.fora[i]) s+='<circle cx="'+X(i).toFixed(1)+'" cy="'+Y(v).toFixed(1)+'" r="5.5" fill="'+c('--crit')+'" stroke="'+c('--surface')+'" stroke-width="2"/>'; });
@@ -276,9 +286,19 @@
       click:function(i){ toggleFlt('m:'+i); }});
   }
 
+  /* [I2] piso de n (mesmo criterio do H4/Pareto, n>=50) para nao colorir
+     celula pouco confiavel na mesma escala, e escala de cor ROBUSTA (baseada
+     no 2o maior valor elegivel, nao no maximo bruto) para uma unica celula
+     extrema nao lavar a escala inteira - achado: Australia x Q1 (n=87) tinha
+     65,5% de taxa contra 14,2% da 2a maior, dominando sozinha o gradiente. */
+  var MIN_N_MATRIX = 50;
   function heat(el,rows){
     var W=880, L=190, R=14, T=26, rh=40, cw=(W-L-R)/4, H=T+rows.length*rh+8;
-    var max=0; rows.forEach(function(r){ r.v.forEach(function(x){ if(x>max) max=x; }); });
+    var eligible=[];
+    rows.forEach(function(r){ r.v.forEach(function(x,j){ if(r.n[j]>=MIN_N_MATRIX) eligible.push(x); }); });
+    eligible.sort(function(a,b){return b-a;});
+    var max = eligible.length>=2 ? eligible[1] : (eligible[0]||0);
+    if(!max) max = eligible[0]||1;
     var ramp=[c('--s1'),c('--s2'),c('--s3'),c('--s4'),c('--s5')];
     var s=sv(W,H);
     FAIXA.forEach(function(f,j){
@@ -292,10 +312,16 @@
         var key=r.gi+'|'+j;
         var picked=sel.c.indexOf(key)>=0;
         var active=gOn && (!sel.f.length||sel.f.indexOf(j)>=0) && (!sel.c.length||picked);
-        var idx=max?Math.min(4,Math.floor(5*v/(max*1.001))):0, dark=idx>=3;
-        var tp=esc(r.k)+' · '+esc(FAIXA[j])+'<br><b>'+nf(v,2)+'%</b> '+(simples()?'voltam':'de taxa')+'<br>'+nf(r.n[j],0)+' itens · £ '+nf(r.e[j],0)+clickHint(picked);
-        s+='<rect x="'+(L+cw*j+2)+'" y="'+(y+2)+'" width="'+(cw-4)+'" height="'+(rh-4)+'" fill="'+ramp[idx]+'" fill-opacity="'+(active?1:0.28)+'"'+(picked?' stroke="'+c('--ink')+'" stroke-width="2.5"':'')+' data-tip="'+attr(tp)+'" data-flt="c:'+key+'"/>';
-        s+='<text x="'+(L+cw*j+cw/2)+'" y="'+(y+rh/2+4)+'" text-anchor="middle" font-size="11" font-weight="600" font-family="IBM Plex Mono,monospace" fill="'+(dark&&active?c('--surface'):c('--ink'))+'" fill-opacity="'+(active?1:0.5)+'" pointer-events="none">'+nf(v,1)+'</text>';
+        var suficiente = r.n[j] >= MIN_N_MATRIX;
+        var idx = suficiente ? Math.min(4,Math.floor(5*Math.min(v,max)/(max*1.001))) : 0;
+        var dark = suficiente && idx>=3;
+        var fillColor = suficiente ? ramp[idx] : c('--sunk');
+        var tp = suficiente
+          ? esc(r.k)+' · '+esc(FAIXA[j])+'<br><b>'+nf(v,2)+'%</b> '+(simples()?'voltam':'de taxa')+'<br>'+nf(r.n[j],0)+' itens · £ '+nf(r.e[j],0)+clickHint(picked)
+          : esc(r.k)+' · '+esc(FAIXA[j])+'<br>'+(simples()?'poucos itens para confiar no número':'n insuficiente (&lt;'+MIN_N_MATRIX+')')+'<br>'+nf(r.n[j],0)+' itens'+clickHint(picked);
+        s+='<rect x="'+(L+cw*j+2)+'" y="'+(y+2)+'" width="'+(cw-4)+'" height="'+(rh-4)+'" fill="'+fillColor+'" fill-opacity="'+(active?1:0.28)+'"'+(!suficiente?' stroke="'+c('--line-2')+'" stroke-width="1" stroke-dasharray="3 2"':'')+(picked?' stroke="'+c('--ink')+'" stroke-width="2.5"':'')+' data-tip="'+attr(tp)+'" data-flt="c:'+key+'"/>';
+        var label = suficiente ? nf(v,1) : (simples()?'n insuf.':'n<'+MIN_N_MATRIX);
+        s+='<text x="'+(L+cw*j+cw/2)+'" y="'+(y+rh/2+4)+'" text-anchor="middle" font-size="'+(suficiente?11:9)+'" font-weight="600" font-family="IBM Plex Mono,monospace" fill="'+(dark&&active?c('--surface'):(suficiente?c('--ink'):c('--ink-3')))+'" fill-opacity="'+(active?1:0.5)+'" pointer-events="none">'+label+'</text>';
       });
     });
     el.innerHTML=s+'</svg>'; wireTips(el);
@@ -321,12 +347,28 @@
       s+='<text x="'+xx+'" y="'+(T+ph+15)+'" text-anchor="middle" font-size="9.5" font-family="IBM Plex Mono,monospace" fill="'+c('--ink-3')+'">'+nf(xmax*gx/4/1000,1)+' mil</text>';
     }
     s+='<text x="'+(L+pw/2)+'" y="'+(H-6)+'" text-anchor="middle" font-size="10.5" fill="'+c('--ink-3')+'">'+(simples()?'itens vendidos →':'volume de itens →')+'</text>';
-    pts.forEach(function(p,i){
+    var geoms=pts.map(function(p,i){
       var r=8+22*Math.sqrt(p.r/rmax), on=!any||sel.p.indexOf(p.pi)>=0;
-      var lab=p.k.length>22?p.k.slice(0,21)+'…':p.k;
-      var tp=esc(p.k)+'<br><b>'+nf(p.y,2)+'%</b> '+(simples()?'voltam':'de taxa')+'<br>'+nf(p.x,0)+' itens<br>£ '+nf(p.r,0)+' '+(simples()?'devolvidos':'estornados')+clickHint(any&&on);
-      s+='<circle cx="'+X(p.x).toFixed(1)+'" cy="'+Y(p.y).toFixed(1)+'" r="'+r.toFixed(1)+'" fill="'+ramp[i%ramp.length]+'" fill-opacity="'+(on?0.88:0.2)+'" stroke="'+(any&&on?c('--ink'):c('--surface'))+'" stroke-width="'+(any&&on?2:1.5)+'" data-tip="'+attr(tp)+'" data-flt="p:'+p.pi+'"/>';
-      s+='<text x="'+(X(p.x)+r+6).toFixed(1)+'" y="'+(Y(p.y)+4).toFixed(1)+'" font-size="9.5" fill="'+(on?c('--ink-2'):c('--ink-3'))+'" pointer-events="none">'+esc(lab)+'</text>';
+      return {p:p,i:i,r:r,on:on,cx:X(p.x),cy:Y(p.y)};
+    });
+    // circulos primeiro (ordem original, nao afeta z-order por tamanho)
+    geoms.forEach(function(g){
+      var tp=esc(g.p.k)+'<br><b>'+nf(g.p.y,2)+'%</b> '+(simples()?'voltam':'de taxa')+'<br>'+nf(g.p.x,0)+' itens<br>£ '+nf(g.p.r,0)+' '+(simples()?'devolvidos':'estornados')+clickHint(any&&g.on);
+      s+='<circle cx="'+g.cx.toFixed(1)+'" cy="'+g.cy.toFixed(1)+'" r="'+g.r.toFixed(1)+'" fill="'+ramp[g.i%ramp.length]+'" fill-opacity="'+(g.on?0.88:0.2)+'" stroke="'+(any&&g.on?c('--ink'):c('--surface'))+'" stroke-width="'+(any&&g.on?2:1.5)+'" data-tip="'+attr(tp)+'" data-flt="p:'+g.p.pi+'"/>';
+    });
+    // [I3] rotulos com prevencao de colisao: bolhas maiores tem prioridade;
+    // rotulo que colidiria com um ja colocado e omitido (a informacao continua
+    // no hover, que ja existe em todo ponto - nunca so a cor carrega identidade).
+    var placed=[];
+    geoms.slice().sort(function(a,b){return b.r-a.r;}).forEach(function(g){
+      var lab=g.p.k.length>22?g.p.k.slice(0,21)+'…':g.p.k;
+      var lx=g.cx+g.r+6, ly=g.cy+4;
+      var boxW=lab.length*5.4+4, boxH=16;
+      var box={x0:lx-2, y0:ly-boxH+2, x1:lx+boxW, y1:ly+2};
+      var collide=placed.some(function(pb){ return !(box.x1<pb.x0||box.x0>pb.x1||box.y1<pb.y0||box.y0>pb.y1); });
+      if(collide) return;
+      placed.push(box);
+      s+='<text x="'+lx.toFixed(1)+'" y="'+ly.toFixed(1)+'" font-size="9.5" fill="'+(g.on?c('--ink-2'):c('--ink-3'))+'" pointer-events="none">'+esc(lab)+'</text>';
     });
     el.innerHTML=s+'</svg>'; wireTips(el);
   }
@@ -560,8 +602,12 @@
     document.getElementById('hero-meta-tec').innerHTML='IC 95% Wilson: <b class="mono">'+nf(P.ic95[0]*100,2)+'%</b>–<b class="mono">'+nf(P.ic95[1]*100,2)+'%</b> · n=<b class="mono">'+nf(P.n,0)+'</b> · <b class="mono">'+nf(P.dpmo,0)+'</b> DPMO · nível sigma <b class="mono">'+nf(P.sigma_deslocado,2)+'</b> ('+nf(P.sigma_longo_prazo,2)+' sem deslocamento de 1,5σ).';
     var gapSinal = P.gap_pp_janela_madura>=0?'+':'';
     document.getElementById('hero-gap').innerHTML='<span class="gap"><span class="mono" style="font-size:19px">'+gapSinal+nf(P.gap_pp_janela_madura,2)+' <span class="sim">ponto percentual</span><span class="tec">pp</span></span><span class="sim">acima da meta de '+nf(P.meta_interna_janela_madura*100,2)+'%</span><span class="tec">acima de '+nf(P.meta_interna_janela_madura*100,2)+'%</span></span>';
-    document.getElementById('hero-gap-meta-sim').textContent='A meta de '+nf(P.meta_interna_janela_madura*100,2)+'% não veio do mercado — é o melhor quartil mensal que o próprio negócio já teve, na mesma janela madura usada para o número principal. Não achamos benchmark de giftware no atacado. A diferença de '+nf(P.gap_pp_janela_madura,2)+' ponto percentual é pequena: a taxa geral está quase batendo a própria melhor meta.';
-    document.getElementById('hero-gap-meta-tec').textContent='Meta interna: melhor quartil (P25) das taxas mensais, mesma janela madura do número principal (dez/2010–ago/2011). Sem benchmark de nicho B2B giftware citável (Gemba documental, Fase 0).';
+    var metaNaBorda = P.meta_interna_janela_madura <= P.ic95[0] + 0.0005; // [I1] meta dentro/na borda do IC do numero principal
+    document.getElementById('hero-gap-meta-sim').innerHTML='A meta de '+nf(P.meta_interna_janela_madura*100,2)+'% não veio do mercado — é o melhor quartil mensal que o próprio negócio já teve, na mesma janela madura usada para o número principal. Não achamos benchmark de giftware no atacado.'
+      +(metaNaBorda ? ' <b>E a diferença de '+nf(P.gap_pp_janela_madura,2)+' ponto percentual não é um fato sólido</b>: a meta cai bem na borda da margem de erro da taxa medida — estatisticamente, não dá para garantir que a taxa está mesmo acima da meta.'
+                    : ' A diferença de '+nf(P.gap_pp_janela_madura,2)+' ponto percentual é pequena: a taxa geral está quase batendo a própria melhor meta.');
+    document.getElementById('hero-gap-meta-tec').innerHTML='Meta interna: melhor quartil (P25) das taxas mensais, mesma janela madura do número principal (dez/2010–ago/2011). Sem benchmark de nicho B2B giftware citável (Gemba documental, Fase 0).'
+      +(metaNaBorda ? ' <b>Meta ('+nf(P.meta_interna_janela_madura*100,2)+'%) coincide com o limite inferior do IC95%% da taxa medida ('+nf(P.ic95[0]*100,2)+'%%–'+nf(P.ic95[1]*100,2)+'%%)</b> — o gap de '+nf(P.gap_pp_janela_madura,2)+'pp não é estatisticamente distinguível de zero com esta margem.' : '');
     document.getElementById('hero-estorno').textContent='£ '+nf(P.receita_estornada,0);
     document.getElementById('hero-disclaimer').innerHTML='<span class="sim">O acompanhamento oficial deste projeto (congelado logo após a auditoria de qualidade, sobre os 10 meses inteiros da janela de exploração) mede <b class="mono">'+nf(P.baseline_congelado_10meses.taxa*100,2)+'%</b> — não usado neste bloco para não misturar duas bases sem aviso; o motivo está na seção 1 do Relatório.</span><span class="tec">Baseline congelado (Fase 2B, 10 meses, n='+nf(P.baseline_congelado_10meses.n,0)+'): <b class="mono">'+nf(P.baseline_congelado_10meses.taxa*100,2)+'%</b> (IC95% ['+nf(P.baseline_congelado_10meses.ic95[0]*100,2)+'%; '+nf(P.baseline_congelado_10meses.ic95[1]*100,2)+'%]) — não usado no bloco de hero/gap para não misturar janelas; ver Relatório seção 1.</span>';
 
