@@ -483,7 +483,8 @@
       ['Origem','Online Retail — UCI Machine Learning Repository (Chen, Sain & Guo, 2012), varejista real do Reino Unido, dez/2010 a dez/2011.'],
       ['Base','Cubo pré-agregado (mês × país × faixa de quantidade × recorrência × produto). Não contém transações individuais.'],
       ['Janela','Cobre o ANO INTEIRO, incluindo os ~2,3 meses finais mantidos em quarentena (holdout) durante a análise e abertos só ao final — difere da taxa oficial do Painel, que usa só a janela de exploração madura.'],
-      ['Exclusão conhecida','StockCode 23843 (par pedido/cancelamento de 80.995 unidades no mesmo dia, evento isolado) excluído da lista de produtos nomeados pelo corte de n≥50 (mesmo critério do H4).'],
+      ['Exclusão conhecida (1)','StockCode 23843 (par pedido/cancelamento de 80.995 unidades no mesmo dia, evento isolado) excluído da lista de produtos nomeados pelo corte de n≥50 (mesmo critério do H4).'],
+      ['Exclusão conhecida (2)','StockCode 23166 / InvoiceNo 541431 (74.215 unidades, £77.183,60, 99,5% do estorno do produto) — correção pós-banca de 2026-09-22: receita desta linha zerada apenas nas agregações de impacto (Pareto e coluna Devolvido desta planilha); o produto continua contando normalmente em itens/taxa (137 linhas legítimas).'],
     ];
     var rows2=info.map(function(r,k){ var n=k+1; return '<row r="'+n+'">'+cStr('A'+n,r[0],r[2]||(k>1?6:0))+(r[1]?cStr('B'+n,r[1]):'')+'</row>'; }).join('');
     var sheet2=XH+'<worksheet xmlns="'+NSX+'"><sheetViews><sheetView workbookViewId="0"/></sheetViews><sheetFormatPr defaultRowHeight="15"/>'+
@@ -590,19 +591,28 @@
     document.getElementById('pareto-narrativa-sim').innerHTML='O produto de maior risco proporcional ('+esc(maiorTaxa.label)+', '+nf(maiorTaxa.taxa,1)+'% de chance de voltar) é apenas o '+(rankMaiorTaxaEmImpacto?rankMaiorTaxaEmImpacto.rank_impacto:'—')+'º em prejuízo. O de maior prejuízo ('+esc(maiorImpacto.label)+', £'+nf(maiorImpacto.es,0)+') tem risco de só '+nf(maiorImpacto.taxa,2)+'%. As duas ordens discordam porque taxa mede risco proporcional e impacto mede volume × risco — um produto de venda baixa pode ter taxa alta sem doer no bolso, e um produto de venda alta dói mesmo com taxa baixa.';
     document.getElementById('pareto-narrativa-tec').innerHTML='Correlação de Spearman fraca entre rank_taxa e rank_impacto no conjunto de produtos com n≥50 (ver tabela acima) — divergência estrutural, não ruído amostral, dado o n de cada produto.';
 
-    // Improve: conta central
+    // Improve: conta central (corrigida em 2026-09-22, C2: abandono contado por
+    // FATURA, nao por linha - receita preservada continua em linhas, como pedido
+    // pela banca: "a receita total preservada, em soma, nao precisa mudar")
     var cen=IMP.cenarios.central, cons=IMP.cenarios.conservador;
+    var linhasEvitadas = IMP.segmento_total_d*cen.f/100;
+    var receitaPreservada = linhasEvitadas*IMP.receita_media_cancelada;
+    var faturasAbandonadas = 0.02*IMP.faturas_legitimas;
+    var receitaPerdida = faturasAbandonadas*IMP.receita_media_fatura_legit;
     document.getElementById('calc-central').innerHTML=
-      'pedidos nos 3 segmentos sinalizados ................ '+nf(IMP.segmento_total_n,0)+'\n'+
-      'cancelamentos observados nesses segmentos ........... '+nf(IMP.segmento_total_d,0)+'\n'+
-      'fração evitada pela verificação (premissa, central) . '+cen.f+'%\n'+
-      'linhas evitadas (estimado) .......................... '+nf(IMP.segmento_total_d*cen.f/100,1)+'\n'+
-      'receita média por linha cancelada nesses segmentos .. £'+nf(IMP.receita_media_cancelada,2)+'\n'+
-      'receita preservada (estimado) ....................... £'+nf(IMP.segmento_total_d*cen.f/100*IMP.receita_media_cancelada,0)+'\n'+
-      'pedidos legítimos no segmento (não cancelariam) ..... '+nf(IMP.segmento_legit,0)+'\n'+
-      'abandono de checkout assumido (premissa) ............ 2%\n'+
-      'receita perdida por abandono (estimado) ............. £'+nf(IMP.segmento_legit*0.02*IMP.receita_media_geral,0)+'\n'+
-      '<b>ganho líquido estimado (cenário central) ................ £'+nf(cen.ganho,0)+'</b>\n'+
+      'linhas nos 3 segmentos sinalizados (InvoiceNo×StockCode) '+nf(IMP.segmento_total_n,0)+'\n'+
+      'faturas distintas (InvoiceNo) nesses mesmos segmentos ... '+nf(IMP.faturas_total,0)+'\n'+
+      'cancelamentos observados (linhas) ........................ '+nf(IMP.segmento_total_d,0)+'\n'+
+      'fração evitada pela verificação (premissa, central) ..... '+cen.f+'%\n'+
+      'linhas evitadas (estimado) ............................... '+nf(linhasEvitadas,1)+'\n'+
+      'receita média por linha cancelada nesses segmentos ...... £'+nf(IMP.receita_media_cancelada,2)+'\n'+
+      'receita preservada (estimado, em linhas) ................. £'+nf(receitaPreservada,0)+'\n'+
+      'faturas legítimas no segmento (sem nenhum cancelamento) . '+nf(IMP.faturas_legitimas,0)+' ('+nf(IMP.faturas_legitimas_pct,1)+'% das faturas)\n'+
+      'receita média por fatura legítima ........................ £'+nf(IMP.receita_media_fatura_legit,2)+'\n'+
+      'abandono de checkout assumido (premissa, por fatura) .... 2%\n'+
+      'faturas abandonadas (estimado) ........................... '+nf(faturasAbandonadas,1)+'\n'+
+      'receita perdida por abandono (estimado) .................. £'+nf(receitaPerdida,0)+'\n'+
+      '<b>ganho líquido estimado (cenário central) ..................... £'+nf(cen.ganho,0)+'</b>\n'+
       '(cenário conservador, evita só '+cons.f+'%: ganho líquido = <b>£'+nf(cons.ganho,0)+'</b> — prejuízo)';
 
     document.getElementById('dash-janela-nota').innerHTML='<b>'+(simples()?'Isto cobre o ano inteiro, com o período de teste final incluído — por isso o número aqui é diferente do Painel.':'Cobertura: ano inteiro (dez/2010–dez/2011), incluindo o holdout.')+'</b> Os ~2,3 meses finais ficaram em quarentena durante a análise e só foram abertos ao final (ver Relatório, seção 14) — o Painel usa apenas a janela madura de exploração. Taxa do ano inteiro (referência do Dashboard): <b class="mono">'+nf(DADOS.dashboard.taxa_ano_inteiro,2)+'%</b>.';

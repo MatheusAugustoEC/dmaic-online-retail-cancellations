@@ -61,6 +61,14 @@ orders_all = parear(orders_all, cancels_all, "defect")
 orders_all["revenue"] = orders_all["Quantity"] * orders_all["UnitPrice"]
 orders_all["in_holdout"] = orders_all["InvoiceDate"] >= HOLDOUT_START
 
+# [C1] mesmo ajuste do baseline_pop (ver bloco abaixo), aplicado tambem ao
+# dataset do ano inteiro que alimenta o cubo do Dashboard - a mesma linha
+# outlier (23166/541431) tambem distorceria o "onde esta o dinheiro" e a
+# selecao de produtos nomeados no Dashboard se nao fosse ajustada aqui.
+_OUTLIER_C1_FULL = (orders_all["InvoiceNo"] == "541431") & (orders_all["StockCode"] == "23166")
+orders_all["revenue_pareto"] = orders_all["revenue"]
+orders_all.loc[_OUTLIER_C1_FULL & (orders_all["defect"] == 1), "revenue_pareto"] = 0.0
+
 # defect_frozen: pareamento restrito a pedidos E cancelamentos da JANELA DE
 # EXPLORACAO apenas - reproduz exatamente a logica da 2B/Analyze, cujo
 # resultado esta congelado em baseline_congelado.json. Precisa bater 100%
@@ -73,6 +81,24 @@ print(f"Universo completo (ano inteiro): {len(orders_all)}")
 print(f"Universo do baseline congelado (exploracao): {len(baseline_pop)} (deve ser 265427)")
 assert len(baseline_pop) == 265427, "populacao do baseline divergiu do congelado na 2B -- INVESTIGAR antes de prosseguir"
 assert int(baseline_pop['defect'].sum()) == 4957, "contagem de defeito divergiu do congelado na 2B -- INVESTIGAR"
+
+# ---------------------------------------------------------------------------
+# [C1] CORRECAO POS-BANCA (2026-09-22): a linha de cancelamento StockCode
+# 23166 / InvoiceNo 541431 (74.215 unidades, £77.183,60 - 99,5% do estorno
+# atribuido ao produto) e uma transacao isolada de um so dia, mesmo padrao
+# de anomalia ja tratado para o StockCode 23843 (excluido por nao passar do
+# corte de n>=50). Aqui o produto 23166 tem 137 linhas legitimas e permanece
+# na base normalmente; so a RECEITA desta linha especifica e zerada para fins
+# de RANKING DE IMPACTO (Pareto por produto) - ela continua contando como
+# defeito real para taxa/contagem (n, d), que a banca nao questionou. Nao
+# mexe na taxa geral do baseline (1,868%/2,05%), nos guardrails nem no DPMO -
+# escopo estritamente o Pareto de impacto por produto, como pedido.
+_OUTLIER_C1 = (baseline_pop["InvoiceNo"] == "541431") & (baseline_pop["StockCode"] == "23166")
+assert _OUTLIER_C1.sum() == 1, "linha outlier do C1 nao encontrada como esperado - verificar antes de prosseguir"
+baseline_pop["revenue_pareto"] = baseline_pop["revenue"]
+baseline_pop.loc[_OUTLIER_C1 & (baseline_pop["defect"] == 1), "revenue_pareto"] = 0.0
+print(f"[C1] Linha outlier (23166/541431) zerada apenas em revenue_pareto (Pareto de impacto); "
+      f"segue contando normalmente em n/d/taxa e na receita estornada geral do Painel.")
 
 def descricao(codigo):
     sub = raw.loc[raw["StockCode"] == codigo, "Description"].dropna()
@@ -210,7 +236,8 @@ out["segmentos_sinalizados"] = [
 # Os DOIS PARETOS do Painel, mesma dimensao (StockCode / produto), n>=50 (mesmo
 # corte do H4) para nao deixar um produto de n baixo dominar por acaso.
 sc = baseline_pop.groupby("StockCode").agg(n=("defect", "size"), d=("defect", "sum"))
-sc["es"] = baseline_pop[baseline_pop["defect"] == 1].groupby("StockCode")["revenue"].sum()
+# [C1] usa revenue_pareto (linha 23166/541431 zerada) - nao "revenue" cru
+sc["es"] = baseline_pop[baseline_pop["defect"] == 1].groupby("StockCode")["revenue_pareto"].sum()
 sc["es"] = sc["es"].fillna(0)
 sc["taxa"] = sc["d"] / sc["n"]
 sc_valid = sc[sc["n"] >= 50].copy()
@@ -284,17 +311,68 @@ out["analyze"] = {
     },
 }
 
+# ---------------------------------------------------------------------------
+# [C2] CORRECAO POS-BANCA (2026-09-22): a conta do Improve usava contagem de
+# LINHAS (InvoiceNo x StockCode) como se fosse contagem de PEDIDOS. Abandono
+# de checkout e um evento por FATURA, nao por linha de produto - recalculado
+# abaixo direto dos dados (nada hardcoded), usando fatura (InvoiceNo) como
+# unidade para o lado do abandono. A receita preservada (que depende de
+# quantas LINHAS de cancelamento a verificacao evitaria) continua em linhas,
+# como pedido pela banca ("a receita total preservada, em soma, nao precisa
+# mudar - so a base de pedidos legitimos").
+FLAGGED_SEGMENTS = [("UK", "Q4", "Recorrente"), ("Resto", "Q2", "Recorrente"), ("Resto", "Q1", "Recorrente")]
+_seg_mask = pd.Series(False, index=baseline_pop.index)
+for _g, _f, _s in FLAGGED_SEGMENTS:
+    _seg_mask |= (baseline_pop["country_group"] == _g) & (baseline_pop["qty_quartil"] == _f) & (baseline_pop["segmento_cliente"] == _s)
+seg_pop = baseline_pop[_seg_mask].copy()
+
+segmento_total_n = int(len(seg_pop))                       # linhas (para a receita preservada)
+segmento_total_d = int(seg_pop["defect"].sum())             # linhas canceladas
+receita_media_cancelada = float(seg_pop.loc[seg_pop["defect"] == 1, "revenue"].mean())
+
+inv_defect = seg_pop.groupby("InvoiceNo")["defect"].max()
+faturas_total = int(inv_defect.shape[0])
+faturas_com_cancelamento = int((inv_defect == 1).sum())
+faturas_legit_idx = inv_defect[inv_defect == 0].index
+faturas_legitimas = int(len(faturas_legit_idx))
+receita_media_fatura_legit = float(seg_pop[seg_pop["InvoiceNo"].isin(faturas_legit_idx)].groupby("InvoiceNo")["revenue"].sum().mean())
+
+_a_abandono = 0.02
+cenarios = {}
+for nome, f in [("conservador", 0.20), ("central", 0.40), ("otimista", 0.60)]:
+    linhas_evitadas = segmento_total_d * f
+    receita_preservada = linhas_evitadas * receita_media_cancelada
+    faturas_abandonadas = _a_abandono * faturas_legitimas
+    receita_perdida = faturas_abandonadas * receita_media_fatura_legit
+    ganho = receita_preservada - receita_perdida
+    indiferenca = receita_preservada / (faturas_legitimas * receita_media_fatura_legit) * 100
+    cenarios[nome] = {"f": int(f * 100), "ganho": round(ganho, 2), "indiferenca": round(indiferenca, 3)}
+
+_taxa_base_fatura = faturas_com_cancelamento / faturas_total
+_efeito_detectar = _taxa_base_fatura * 0.40  # reducao relativa de 40%, mesma premissa central
+from statsmodels.stats.power import NormalIndPower as _NIP
+from statsmodels.stats.proportion import proportion_effectsize as _pe
+_h = _pe(_taxa_base_fatura - _efeito_detectar, _taxa_base_fatura)
+_n_por_braco = _NIP().solve_power(effect_size=_h, alpha=0.05, power=0.8, ratio=1.0)
+_faturas_mes_segmento = faturas_total / 10  # janela madura ~10 meses de exploracao
+
 out["improve"] = {
-    "segmento_total_n": 34257, "segmento_total_d": 1052, "segmento_legit": 33205,
-    "receita_media_cancelada": 100.77, "receita_media_geral": 63.55,
-    "cenarios": {
-        "conservador": {"f": 20, "ganho": -21001.91, "indiferenca": 1.005},
-        "central": {"f": 40, "ganho": 200.06, "indiferenca": 2.009},
-        "otimista": {"f": 60, "ganho": 21402.03, "indiferenca": 3.014},
-    },
+    "unidade_abandono": "fatura (InvoiceNo) - corrigido de linha para fatura em 2026-09-22, ver C2",
+    "segmento_total_n": segmento_total_n,
+    "segmento_total_d": segmento_total_d,
+    "receita_media_cancelada": round(receita_media_cancelada, 2),
+    "faturas_total": faturas_total,
+    "faturas_com_cancelamento": faturas_com_cancelamento,
+    "faturas_legitimas": faturas_legitimas,
+    "faturas_legitimas_pct": round(faturas_legitimas / faturas_total * 100, 1),
+    "receita_media_fatura_legit": round(receita_media_fatura_legit, 2),
+    "cenarios": cenarios,
     "experimento": {
-        "baseline_segmento": 3.071, "efeito_detectar_pp": 1.228, "n_por_braco": 2454,
-        "pedidos_mes_segmento": 3426, "meses_para_n": 1.4,
+        "baseline_segmento_fatura_pct": round(_taxa_base_fatura * 100, 3),
+        "efeito_detectar_pp": round((_taxa_base_fatura - _efeito_detectar) * 100, 3),
+        "n_por_braco": int(round(_n_por_braco)),
+        "faturas_mes_segmento": round(_faturas_mes_segmento, 1),
+        "meses_para_n": round(_n_por_braco * 2 / _faturas_mes_segmento, 2),
     },
     "fmea": [
         {"modo": "Fricção afasta revendedores de alto volume", "sev": 9, "oco": 6, "det": 4, "npr": 216},
@@ -302,6 +380,10 @@ out["improve"] = {
         {"modo": "Regra de segmento desatualiza com mudança de mix", "sev": 6, "oco": 5, "det": 3, "npr": 90},
     ],
 }
+print(f"[C2] faturas_total={faturas_total} faturas_com_cancelamento={faturas_com_cancelamento} "
+      f"faturas_legitimas={faturas_legitimas} ({faturas_legitimas/faturas_total*100:.1f}%%)")
+print(f"[C2] cenarios: {cenarios}")
+print(f"[C2] experimento: n_por_braco={_n_por_braco:.1f} taxa_base_fatura={_taxa_base_fatura*100:.3f}%%")
 
 out["qualidade"] = {
     "customerid_nulo_pct": 24.93,
@@ -316,6 +398,14 @@ out["qualidade"] = {
         "invoice_original": "581483", "invoice_cancelamento": "C581484",
         "quantidade": 80995, "data": "2011-12-09",
         "nota": "Par pedido/cancelamento de 80.995 unidades, lancado e cancelado com 12 minutos de diferenca, mesmo cliente, mesmo dia. Evento isolado, nao padrao de produto - excluido da selecao dos produtos nomeados no cubo do Dashboard e dos dois Paretos do Painel via o mesmo corte de n>=50 usado no H4 (o par por si so nao muda n, mas sua receita dominaria qualquer ranking por impacto se incluido sem o corte)."
+    },
+    "outlier_pareto_ajustado": {
+        "stockcode": "23166", "descricao": descricao("23166"),
+        "invoice_original": "541431", "invoice_cancelamento": "C541433",
+        "quantidade": 74215, "unit_price": 1.04, "receita_linha": round(74215 * 1.04, 2),
+        "data": "2011-01-18",
+        "correcao": "C1 (revisao externa, 2026-09-22)",
+        "nota": "Ao contrario de 23843, este produto tem 137 linhas legitimas e permanece na base normalmente (n, d e taxa inalterados). So a RECEITA desta linha especifica (£77.183,60 de £77.579,29 do produto, 99,5%) foi zerada em revenue_pareto - usada apenas nos dois Paretos do Painel e no ranking/legenda de produto do Dashboard. Nao afeta a taxa de cancelamento geral, o DPMO, a receita liquida dos guardrails nem a receita estornada do hero do Painel."
     },
 }
 
@@ -347,18 +437,22 @@ orders_all["seg_idx"] = np.where(orders_all["InvoiceDate"] == first_date_full, 0
 SEG_LABELS = ["Primeira compra", "Recorrente"]
 
 sku_n = orders_all.groupby("StockCode").size()
-sku_revenue_all = orders_all[orders_all["defect"] == 1].groupby("StockCode")["revenue"].sum()
+# [C1] revenue_pareto (nao "revenue" cru) tambem na selecao/exposicao do Dashboard
+sku_revenue_all = orders_all[orders_all["defect"] == 1].groupby("StockCode")["revenue_pareto"].sum()
 sku_revenue = sku_revenue_all[sku_revenue_all.index.isin(sku_n[sku_n >= 50].index)].sort_values(ascending=False)
 # guarda contra outlier de transacao unica: StockCode 23843 e um unico par
 # pedido/cancelamento de 80.995 unidades no mesmo dia (evento isolado, nao
 # padrao de produto) - o corte de n>=50 (mesmo criterio do H4) ja o exclui.
+# StockCode 23166/InvoiceNo 541431 (74.215 un., £77.183,60) e outro outlier de
+# transacao unica, tratado em revenue_pareto (ver [C1] acima) - nao no corte
+# de n, porque 23166 tem 137 linhas legitimas e continua no cubo normalmente.
 top_skus = sku_revenue.head(10).index.tolist()
 SKU_LABELS = [descricao(s) for s in top_skus] + ["Outros produtos"]
 sku_idx = {s: i for i, s in enumerate(top_skus)}
 orders_all["si"] = orders_all["StockCode"].map(lambda s: sku_idx.get(s, len(top_skus)))
 
 grp = orders_all.groupby(["mi", "pi", "qty_quartil_full", "seg_idx", "si"]).agg(
-    it=("defect", "size"), ca=("defect", "sum"), es=("revenue", lambda s: s[orders_all.loc[s.index, "defect"] == 1].sum())
+    it=("defect", "size"), ca=("defect", "sum"), es=("revenue_pareto", lambda s: s[orders_all.loc[s.index, "defect"] == 1].sum())
 ).reset_index()
 # campos ja nomeados g/f/s/p (mesma convencao de chave de uma letra usada no
 # JS do molde: g=pais, f=faixa de quantidade, s=recorrencia, p=produto)
