@@ -76,7 +76,8 @@ section[hidden]{display:none!important}
 .three{display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:16px; margin-top:16px}
 .tbox{overflow-x:auto; border:1px solid var(--line); background:var(--surface); margin-top:16px}
 .exec-summary{border:1px solid var(--line); border-left:4px solid var(--accent); background:var(--accent-soft); padding:16px 18px; margin:18px 0}
-.exec-summary h2{font-size:14px; margin:0 0 8px; letter-spacing:.02em}
+.exec-summary h2{font-size:14px; margin:18px 0 8px; letter-spacing:.02em; border-top:0; padding-top:0}
+.exec-summary h2:first-child{margin-top:0}
 .exec-summary p{margin:0 0 8px}
 .exec-summary p:last-child{margin-bottom:0}
 .exec-summary .exec-jump{font-size:12.5px; color:var(--ink-3)}
@@ -150,7 +151,6 @@ th[aria-sort] .arw{opacity:1; color:var(--accent)}
 /* relatorio */
 .report{max-width:70ch; margin:0 auto}
 .report h1{font-size:clamp(29px,5vw,41px); margin-bottom:16px}
-.answer{font-size:clamp(18px,3vw,22px); line-height:1.42; font-family:Fraunces,serif; font-weight:600; border-left:4px solid var(--accent); padding-left:16px; margin:0 0 26px; color:var(--ink)}
 .report h2{font-size:20px; margin:38px 0 10px; padding-top:20px; border-top:1px solid var(--line); scroll-margin-top:80px}
 .report h3{font-size:16px; margin:22px 0 6px}
 .toc{background:var(--surface); border:1px solid var(--line); padding:14px 18px; margin-bottom:30px; font-size:13.5px}
@@ -331,11 +331,11 @@ svg{display:block; width:100%; height:auto; user-select:none; -webkit-user-selec
     <table class="controltable">
       <thead><tr><th><span class="sim">O que acompanhar</span><span class="tec">Métrica</span></th><th><span class="sim">Alarme em</span><span class="tec">Limite</span></th><th>Frequência</th><th>Responsável</th><th><span class="sim">O que fazer se passar</span><span class="tec">Ação ao sair do limite</span></th></tr></thead>
       <tbody>
-        <tr><td data-label="O que acompanhar"><span class="sim">Itens que voltam, por segmento de risco</span><span class="tec">Taxa por segmento de risco</span></td><td class="mono" data-label="Alarme em">carta p′ (Laney), 3σ</td><td data-label="Frequência">Mensal</td><td data-label="Responsável">Ger. Operações</td><td data-label="O que fazer se passar">2 meses seguidos fora, ou regra de Nelson → revisão do plano</td></tr>
+        <tr><td data-label="O que acompanhar"><span class="sim">Itens que voltam, por segmento de risco</span><span class="tec">Taxa por segmento de risco</span></td><td class="mono" data-label="Alarme em"><span class="sim">quando sair da faixa normal (carta de controle)</span><span class="tec">carta p′ (Laney), 3σ</span></td><td data-label="Frequência">Mensal</td><td data-label="Responsável">Ger. Operações</td><td data-label="O que fazer se passar">2 meses seguidos fora, ou regra de Nelson → revisão do plano</td></tr>
         <tr><td data-label="O que acompanhar"><span class="sim">Faturamento</span><span class="tec">Receita bruta</span></td><td class="mono" data-label="Alarme em"><span class="sim">queda &gt;20% vs. média dos 3 meses anteriores</span><span class="tec">queda &gt;20% vs. média móvel de 3 meses</span></td><td data-label="Frequência">Mensal</td><td data-label="Responsável">Ger. Operações</td><td data-label="O que fazer se passar">Pausar verificação prévia no segmento e investigar</td></tr>
         <tr><td data-label="O que acompanhar"><span class="sim">Pedidos</span><span class="tec">Volume total de pedidos</span></td><td class="mono" data-label="Alarme em"><span class="sim">queda &gt;20% vs. média dos 3 meses anteriores</span><span class="tec">queda &gt;20% vs. média móvel de 3 meses</span></td><td data-label="Frequência">Mensal</td><td data-label="Responsável">Ger. Operações</td><td data-label="O que fazer se passar">Mesma ação acima</td></tr>
-        <tr><td data-label="O que acompanhar"><span class="sim">Abandono no checkout (por fatura)</span><span class="tec">Taxa de abandono (por fatura)</span></td><td class="mono" data-label="Alarme em">&gt; 2,38%</td><td data-label="Frequência">Semanal (rollout)</td><td data-label="Responsável">Ger. Operações</td><td data-label="O que fazer se passar">Reverter a fricção imediatamente no segmento</td></tr>
-        <tr><td data-label="O que acompanhar"><span class="sim">Produto entrando na lista de risco</span><span class="tec">Taxa por StockCode (H4)</span></td><td class="mono" data-label="Alarme em">≥ 2x a média geral (limite inferior do IC)</td><td data-label="Frequência">Mensal</td><td data-label="Responsável">Qualidade / Estoque</td><td data-label="O que fazer se passar"><span class="sim">Adicionar à lista de conferência dupla</span><span class="tec">Adicionar à lista de conferência dupla (poka-yoke)</span></td></tr>
+        <tr><td data-label="O que acompanhar"><span class="sim">Abandono no checkout (por fatura)</span><span class="tec">Taxa de abandono (por fatura)</span></td><td class="mono" data-label="Alarme em"><span class="sim">mais de 2,38% desistindo da compra</span><span class="tec">&gt; 2,38%</span></td><td data-label="Frequência">Semanal (rollout)</td><td data-label="Responsável">Ger. Operações</td><td data-label="O que fazer se passar">Reverter a fricção imediatamente no segmento</td></tr>
+        <tr><td data-label="O que acompanhar"><span class="sim">Produto entrando na lista de risco</span><span class="tec">Taxa por StockCode (H4)</span></td><td class="mono" data-label="Alarme em"><span class="sim">quando um produto voltar 2x mais que a média</span><span class="tec">≥ 2x a média geral (limite inferior do IC)</span></td><td data-label="Frequência">Mensal</td><td data-label="Responsável">Qualidade / Estoque</td><td data-label="O que fazer se passar"><span class="sim">Adicionar à lista de conferência dupla</span><span class="tec">Adicionar à lista de conferência dupla (poka-yoke)</span></td></tr>
         <tr><td data-label="O que acompanhar"><span class="sim">Erro de separação em pedido grande do Reino Unido</span><span class="tec">Taxa de erro de picking, Quantity alta × UK</span></td><td class="mono" data-label="Alarme em"><span class="sim">a definir (sem dado de linha-base)</span><span class="tec">a definir — sem linha-base de erro de picking nesta base</span><span class="tag-pend">pendente</span></td><td data-label="Frequência"><span class="sim">Amostral, por pedido grande do Reino Unido</span><span class="tec">Amostral (pedidos Quantity Q4 × UK)</span></td><td data-label="Responsável">Ger. Estoque / Armazém</td><td data-label="O que fazer se passar">Revisar procedimento de separação para a faixa</td></tr>
       </tbody>
     </table>
@@ -451,19 +451,20 @@ svg{display:block; width:100%; height:auto; user-select:none; -webkit-user-selec
 <!-- ===================== RELATORIO ===================== -->
 <section id="pane-relatorio" class="pane" hidden><div class="wrap"><div class="report">
   <div class="eyebrow">Relatório completo · projeto DMAIC</div>
-  <h1>Onde e por que este varejista perde pedidos por cancelamento</h1>
-  <p class="answer sim">A taxa geral está quase batendo a própria meta. O problema real está escondido em dois lugares: um grupo fechado de produtos específicos, e o efeito de pedidos grandes — que só é risco dentro do Reino Unido.</p>
-  <p class="answer tec">Taxa medida em 2,05% (janela madura) contra meta interna de 1,99% (+0,05 pp). A causa mais robusta é produto específico (H4); o efeito de Quantity (H1) é real mas condicionado a país (H5), com inversão de sinal fora do UK.</p>
+  <h1 class="sim">Onde este varejista perde dinheiro com cancelamento — e como estancar sem afastar cliente</h1>
+  <h1 class="tec">Cancelamento e devolução: causa raiz, recomendação condicionada e o número que decide</h1>
 
   <div class="exec-summary">
-    <h2 class="sim">Resumo: o problema e o que eu recomendo</h2>
-    <h2 class="tec">Resumo executivo</h2>
-    <p class="sim"><b>O problema</b> não está espalhado igualmente: ele se concentra em cerca de 66 produtos específicos que voltam desproporcionalmente mais, e em pedidos grandes — mas só quando são do Reino Unido (fora dele, o padrão se inverte).</p>
-    <p class="tec"><b>Achado central:</b> a causa mais robusta é produto específico (H4, ~66 StockCodes sinalizados); o efeito de Quantity (H1) é real mas condicionado a país (H5), com inversão de sinal fora do UK — nenhuma trava por país ou quantidade isolados é justificável.</p>
-    <p class="sim"><b>O que eu recomendo:</b> conferência dupla na separação desses produtos sinalizados, mais uma conferência extra na separação de pedidos grandes do Reino Unido (ataca a causa suspeita direto no armazém). Uma confirmação extra no checkout entra só como reforço, condicionada aos dois critérios ao mesmo tempo — nunca isolada.</p>
-    <p class="tec"><b>Contramedidas (seção 9):</b> poka-yoke condicionado (Quantity alta × país=UK) tem prioridade sobre qualquer regra de segmento isolada, consequência direta do veredito parcial de H5.</p>
-    <p class="sim">O ganho estimado central é de <b>£6.761</b>, mas essa não é a métrica que decide: se mais de <b>1 em cada 42 faturas</b> legítimas do segmento sinalizado for abandonada por causa da confirmação extra, o ganho desaparece. É por isso que a seção 11 propõe um teste real antes de decidir.</p>
-    <p class="tec">Ponto de indiferença (não o ganho bruto) é o número que guia a decisão — ver seção 10. Desenho experimental proposto na seção 11, antes de qualquer rollout.</p>
+    <h2 class="sim">O problema</h2>
+    <h2 class="tec">O problema</h2>
+    <p class="sim">Cerca de <b>1 a cada 49</b> itens vendidos volta cancelado ou devolvido — <b class="mono">2,05%</b> na janela madura de exploração (dez/2010–ago/2011), <b class="mono">£299.135</b> em receita estornada nela. A meta interna é <b class="mono">1,99%</b>: a diferença de 0,05 ponto percentual é pequena demais para garantir que a taxa está mesmo acima da meta. O problema não está espalhado — se concentra num grupo fechado de <b>~66 produtos específicos</b> que voltam desproporcionalmente mais, e em <b>pedidos grandes</b>, mas só quando são do Reino Unido (fora dele, o padrão se inverte). A carta de controle mostra um processo estável: a variação é o que o sistema já entrega por construção, não um evento pontual.</p>
+    <p class="tec">Taxa de <b class="mono">2,05%</b> (IC 95% Wilson 1,99%–2,10%, n=225.558) contra meta interna de <b class="mono">1,99%</b> (+0,05pp, não distinguível de zero nesta margem); <b class="mono">£299.135</b> de receita estornada na janela. Processo sob controle estatístico (carta p′ de Laney, 41/43 semanas dentro da faixa). Causa dominante: produto específico (H4, 66/1.399 StockCodes sinalizados pelo limite inferior do IC de Wilson); Quantity alta (H1) só é risco dentro do UK — heterogeneidade real por país, com inversão de sinal fora dele (H5).</p>
+
+    <h2 class="sim">A solução</h2>
+    <h2 class="tec">A solução</h2>
+    <p class="sim">Recomendo <b>conferência dupla na separação</b> dos produtos sinalizados e dos pedidos grandes do Reino Unido — ataca a causa suspeita direto no armazém. Uma <b>confirmação extra no checkout</b> entra só como reforço, condicionada aos dois critérios ao mesmo tempo, nunca isolada. O ganho estimado central é de <b class="mono">£6.761</b>, mas essa não é a métrica que decide: no cenário conservador (a verificação evita só 20% dos cancelamentos) o resultado <b>já é prejuízo</b>. Quem decide é o <b>ponto de indiferença: 2,38%</b> — se mais de <b>1 em cada 42 faturas</b> legítimas do segmento sinalizado for abandonada por causa da fricção extra, o ganho desaparece. Por isso proponho um <b>teste real</b> (seção 11) antes de qualquer rollout, em vez de recomendar a implementação direta.</p>
+    <p class="tec">Poka-yoke condicionado (Quantity alta × país=UK), nunca isolado por segmento — consequência direta do veredito parcial de H5 (seção 9). Ganho central £6.761 cobre só os 3 segmentos de risco condicionados; H4 (maior cobertura de causa) não tem custo estimável com este dado. Ponto de indiferença por fatura: <b class="mono">2,38%</b> no cenário central (40% de adesão), <b class="mono">1,19%</b> no conservador (20%, já com ganho bruto negativo). Desenho experimental completo na seção 11.</p>
+
     <p class="exec-jump"><span class="sim">O resto deste relatório mostra como cheguei a essas conclusões, passo a passo, a partir da seção 1.</span><span class="tec">Evidência completa, hipótese por hipótese, a partir da seção 1.</span></p>
   </div>
 
