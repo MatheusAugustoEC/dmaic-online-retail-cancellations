@@ -71,8 +71,15 @@ section[hidden]{display:none!important}
 .card .eyebrow{margin-bottom:9px}
 .cardnote{font-size:12.5px; color:var(--ink-3); margin-top:10px; line-height:1.55}
 .two{display:grid; grid-template-columns:repeat(auto-fit,minmax(330px,1fr)); gap:16px; margin-top:16px}
+.two .card{display:flex; flex-direction:column}
+.two .card > div[id]{flex:1; display:flex; flex-direction:column; justify-content:center}
 .three{display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:16px; margin-top:16px}
 .tbox{overflow-x:auto; border:1px solid var(--line); background:var(--surface); margin-top:16px}
+.exec-summary{border:1px solid var(--line); border-left:4px solid var(--accent); background:var(--accent-soft); padding:16px 18px; margin:18px 0}
+.exec-summary h2{font-size:14px; margin:0 0 8px; letter-spacing:.02em}
+.exec-summary p{margin:0 0 8px}
+.exec-summary p:last-child{margin-bottom:0}
+.exec-summary .exec-jump{font-size:12.5px; color:var(--ink-3)}
 table{width:100%; border-collapse:collapse; font-size:13.5px}
 th{text-align:left; font-family:"IBM Plex Mono",monospace; font-size:9.5px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-3); padding:10px 13px; border-bottom:1px solid var(--line-2); background:var(--sunk); white-space:nowrap}
 td{padding:9px 13px; border-bottom:1px solid var(--line); color:var(--ink-2); vertical-align:top}
@@ -447,6 +454,18 @@ svg{display:block; width:100%; height:auto; user-select:none; -webkit-user-selec
   <h1>Onde e por que este varejista perde pedidos por cancelamento</h1>
   <p class="answer sim">A taxa geral está quase batendo a própria meta. O problema real está escondido em dois lugares: um grupo fechado de produtos específicos, e o efeito de pedidos grandes — que só é risco dentro do Reino Unido.</p>
   <p class="answer tec">Taxa medida em 2,05% (janela madura) contra meta interna de 1,99% (+0,05 pp). A causa mais robusta é produto específico (H4); o efeito de Quantity (H1) é real mas condicionado a país (H5), com inversão de sinal fora do UK.</p>
+
+  <div class="exec-summary">
+    <h2 class="sim">Resumo: o problema e o que eu recomendo</h2>
+    <h2 class="tec">Resumo executivo</h2>
+    <p class="sim"><b>O problema</b> não está espalhado igualmente: ele se concentra em cerca de 66 produtos específicos que voltam desproporcionalmente mais, e em pedidos grandes — mas só quando são do Reino Unido (fora dele, o padrão se inverte).</p>
+    <p class="tec"><b>Achado central:</b> a causa mais robusta é produto específico (H4, ~66 StockCodes sinalizados); o efeito de Quantity (H1) é real mas condicionado a país (H5), com inversão de sinal fora do UK — nenhuma trava por país ou quantidade isolados é justificável.</p>
+    <p class="sim"><b>O que eu recomendo:</b> conferência dupla na separação desses produtos sinalizados, mais uma conferência extra na separação de pedidos grandes do Reino Unido (ataca a causa suspeita direto no armazém). Uma confirmação extra no checkout entra só como reforço, condicionada aos dois critérios ao mesmo tempo — nunca isolada.</p>
+    <p class="tec"><b>Contramedidas (seção 9):</b> poka-yoke condicionado (Quantity alta × país=UK) tem prioridade sobre qualquer regra de segmento isolada, consequência direta do veredito parcial de H5.</p>
+    <p class="sim">O ganho estimado central é de <b>£6.761</b>, mas essa não é a métrica que decide: se mais de <b>1 em cada 42 faturas</b> legítimas do segmento sinalizado for abandonada por causa da confirmação extra, o ganho desaparece. É por isso que a seção 11 propõe um teste real antes de decidir.</p>
+    <p class="tec">Ponto de indiferença (não o ganho bruto) é o número que guia a decisão — ver seção 10. Desenho experimental proposto na seção 11, antes de qualquer rollout.</p>
+    <p class="exec-jump"><span class="sim">O resto deste relatório mostra como cheguei a essas conclusões, passo a passo, a partir da seção 1.</span><span class="tec">Evidência completa, hipótese por hipótese, a partir da seção 1.</span></p>
+  </div>
 
   <nav class="toc">
     <b>Neste relatório</b>

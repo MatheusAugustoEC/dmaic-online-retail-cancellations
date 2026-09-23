@@ -1,5 +1,37 @@
 # Correções da banca — registro
 
+## Rodada 4 (2026-09-22) — ajustes de uso real, pedidos diretamente pelo usuário
+
+Cinco ajustes de interação e apresentação identificados no uso real da página (não da revisão automatizada). Nenhum número de análise mudou — confirmado por diff: `docs/entrega_dados.json` e `src/fase6_dados_entrega.py` intocados; só `docs/app.js` e `docs/index.html`.
+
+### Zoom: adicionado "pan" (arrastar para os lados) depois de ampliar
+
+- **Antes:** o único gesto de zoom era "arrastar = selecionar uma caixa e ampliar nela". Depois de ampliado, não havia como deslocar a janela visível sem resetar e selecionar de novo.
+- **Depois:** com o zoom já ativo, arrastar move a janela visível para os lados (carta: só no eixo do tempo; bolhas: nos dois eixos), sem trocar o nível de ampliação. Sem zoom, arrastar continua funcionando como antes (seleciona e amplia). A dica embaixo do gráfico muda de texto conforme o estado ("arraste para ampliar" vs. "arraste para mover a janela"). Corrigido também um bug descoberto durante a implementação: o pan re-renderiza o gráfico a cada passo do arrasto, e o estado do arrasto em andamento ficava com uma referência antiga (órfã) do SVG depois do primeiro passo, travando o gesto — corrigido relendo o SVG atual a cada evento.
+
+### Duas bolinhas vermelhas na carta de controle (antes só uma)
+
+- **Investigado, não é bug:** as duas últimas semanas já eram marcadas como fora da faixa antes desta rodada — é um achado documentado (não uma correção nova): essas semanas não tiveram tempo hábil para os cancelamentos aparecerem (censura à direita), e isso já está no texto do Relatório e dos slides. Nenhuma mudança de código.
+
+### Etiqueta "PENDENTE" do plano de controle
+
+- **Esclarecido, sem mudança:** a etiqueta (adicionada na Rodada 3, achado V5) sinaliza que a linha "Erro de separação" não tem limite de alarme definido por falta de dado histórico — é um item genuinamente em aberto, não um erro de preenchimento.
+
+### Gráficos de barra "Tamanho do pedido" e "Tipo de cliente" não centralizados
+
+- **Antes:** esses dois gráficos (4 e 2 barras) ficavam pareados, lado a lado, com "Por país" e "Onde está o dinheiro" (até 14 e ~90 barras); o layout esticava as duas colunas para a mesma altura, e o gráfico menor ficava grudado no topo, com espaço vazio embaixo.
+- **Depois:** o conteúdo desses cartões fica centralizado verticalmente quando sobra espaço — mudança só de CSS (`.two .card`), sem afetar cartões de largura cheia (matriz, dispersão).
+
+### Bolhas cortadas na borda esquerda do gráfico de dispersão
+
+- **Antes:** um efeito colateral da Rodada 2 (zoom): o recorte visual (clip-path) que esconde bolhas fora da área ao dar zoom começava exatamente na borda do eixo Y, cortando ao meio as bolhas de produtos de menor volume, cujo centro fica perto dessa borda.
+- **Depois:** o recorte foi alargado para a esquerda por um raio de bolha inteiro, então nenhuma bolha é mais cortada — sem mudar a escala do eixo nem nenhum número.
+
+### Relatório: resumo executivo (problema + solução) antes da lista de seções
+
+- **Antes:** a solução ("O que fazer") só aparecia na seção 9, depois de toda a evidência (baseline, dados, qualidade, estabilidade, estratificação, causas) — necessário para sustentar a recomendação com rigor, mas exige ler bastante para chegar à conclusão prática.
+- **Depois:** adicionado um bloco "Resumo executivo" logo no topo do Relatório, antes do sumário — problema, recomendação e o número que decide (ponto de indiferença), em poucos parágrafos, nos dois registros — sem reordenar nenhuma das 15 seções nem tocar nas referências cruzadas entre elas ("ver seção X").
+
 ## Rodada 3 (2026-09-22)
 
 Parecer V3: aprovado com ressalvas — nenhum achado muda número, conclusão ou decisão; todos são de interface/legibilidade. Reconferidos do zero os números críticos das rodadas anteriores (6.902 faturas, 66 produtos, £6.761 etc.), sem leftover. Confirmado por diff que `docs/entrega_dados.json` e `src/fase6_dados_entrega.py` não foram tocados nesta rodada — só `docs/app.js` e `docs/index.html`.

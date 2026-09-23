@@ -87,49 +87,71 @@
   }
 
   /* ================= zoom (regra 18, interacao.md) =================
-     Arrastar sobre a area do grafico amplia; Ctrl + roda aproxima/afasta;
-     duplo clique ou "Ver tudo" (so aparece com zoom ativo) volta. A roda
-     SOZINHA continua rolando a pagina. No celular, sem arrasto (bloquearia
-     a rolagem) - so a pinca nativa do navegador. Ouvintes de arrasto no
+     Sem zoom: arrastar sobre a area do grafico amplia (seleciona a caixa).
+     Com zoom ja ativo: arrastar move a janela visivel para os lados (pan),
+     sem trocar o nivel de ampliacao - pedido de ajuste apos o uso real da
+     pagina (arrastar-so-amplia nao deixava "passear" pelo trecho ampliado).
+     Ctrl + roda aproxima/afasta (funciona nos dois estados); duplo clique
+     ou "Ver tudo" (so aparece com zoom ativo) volta. A roda SOZINHA
+     continua rolando a pagina. No celular, sem arrasto (bloquearia a
+     rolagem) - so a pinca nativa do navegador. Ouvintes de arrasto no
      documento, uma vez so, lendo o estado DRAG (nunca acumulados). */
   var ZOOM={}, DRAG=null;
   var TOQUE = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
   function zoomBar(el,zoomed,reset){
     var bar=document.createElement('div'); bar.className='zoom-bar';
-    bar.innerHTML='<span class="zoom-hint">'+(simples()?'Arraste sobre o gráfico para ampliar · Ctrl + roda do mouse aproxima e afasta':'Arraste para ampliar · Ctrl + roda: zoom · duplo clique: ver tudo')+'</span>'+
+    var dica = zoomed
+      ? (simples()?'Arraste para mover a janela · Ctrl + roda do mouse aproxima e afasta':'Arraste: mover janela · Ctrl + roda: zoom · duplo clique: ver tudo')
+      : (simples()?'Arraste sobre o gráfico para ampliar · Ctrl + roda do mouse aproxima e afasta':'Arraste para ampliar · Ctrl + roda: zoom · duplo clique: ver tudo');
+    bar.innerHTML='<span class="zoom-hint">'+dica+'</span>'+
       (zoomed?'<button type="button" class="zoom-reset">Ver tudo</button>':'');
     el.appendChild(bar);
     if(zoomed) bar.querySelector('.zoom-reset').onclick=function(e){ e.stopPropagation(); reset(); };
   }
+  /* pt() e' de proposito uma funcao solta (nao presa ao svg de um zoomavel()
+     especifico): durante um pan, cada passo re-renderiza o grafico inteiro
+     (troca o <svg> por um novo), entao o DRAG em andamento precisa reler
+     el.querySelector('svg') a cada evento - um pt() fechado sobre o svg
+     ANTIGO ficaria orfao (getBoundingClientRect de elemento destacado). */
+  function pt(svg,o,e){ var r=svg.getBoundingClientRect(); return [(e.clientX-r.left)*o.W/r.width,(e.clientY-r.top)*o.H/r.height]; }
   function zoomavel(el,o){
-    /* o: {W,H,L,R,T,B, xy (true=dois eixos; false=so o tempo), aplicar(x0,x1,y0,y1 em px), roda(fator,px,py), reset()} */
+    /* o: {W,H,L,R,T,B, xy (true=dois eixos; false=so o tempo), aplicar(x0,x1,y0,y1 em px),
+          roda(fator,px,py), reset(), zoomAtivo():bool, pan(dxPx,dyPx)} */
     var svg=el.querySelector('svg');
-    function pt(e){ var r=svg.getBoundingClientRect(); return [(e.clientX-r.left)*o.W/r.width,(e.clientY-r.top)*o.H/r.height]; }
     function dentro(p){ return p[0]>=o.L && p[0]<=o.W-o.R && p[1]>=o.T && p[1]<=o.H-o.B; }
     if(!TOQUE){
       svg.onmousedown=function(e){
-        if(e.button!==0) return; var p=pt(e); if(!dentro(p)) return;
-        e.preventDefault(); DRAG={el:el,svg:svg,o:o,p0:p,box:null,pt:pt};
+        if(e.button!==0) return; var p=pt(svg,o,e); if(!dentro(p)) return;
+        e.preventDefault();
+        DRAG={el:el,svg:svg,o:o,p0:p,last:p,box:null,moved:false,pan:o.zoomAtivo&&o.zoomAtivo()};
       };
     } else {
       svg.onmousedown=null;
     }
     svg.onwheel=function(e){
       if(!e.ctrlKey) return; e.preventDefault();
-      var p=pt(e); if(!dentro(p)) return; o.roda(e.deltaY<0?0.8:1.25,p[0],p[1]);
+      var p=pt(svg,o,e); if(!dentro(p)) return; o.roda(e.deltaY<0?0.8:1.25,p[0],p[1]);
     };
     svg.ondblclick=function(e){ e.preventDefault(); o.reset(); };
-    svg.style.cursor = TOQUE ? 'default' : 'crosshair';
+    svg.style.cursor = TOQUE ? 'default' : (o.zoomAtivo&&o.zoomAtivo()?'grab':'crosshair');
   }
   function clampPx(v,a,b){ return Math.max(a,Math.min(b,v)); }
   document.addEventListener('mousemove',function(e){
-    if(!DRAG) return; var d=DRAG, o=d.o, p=d.pt(e);
+    if(!DRAG) return; var d=DRAG, o=d.o, p=pt(d.svg,o,e);
     var x=clampPx(p[0],o.L,o.W-o.R), y=clampPx(p[1],o.T,o.H-o.B);
-    if(!d.box && Math.abs(x-d.p0[0])<5 && Math.abs(y-d.p0[1])<5) return;
+    if(!d.moved && Math.abs(x-d.p0[0])<5 && Math.abs(y-d.p0[1])<5) return;
+    if(!d.moved){ d.moved=true; hideTip(); if(d.pan) d.el._arrastou=true; }
+    if(d.pan){
+      o.pan(x-d.last[0], y-d.last[1]);
+      d.svg=d.el.querySelector('svg');
+      var p2=pt(d.svg,o,e);
+      d.last=[clampPx(p2[0],o.L,o.W-o.R),clampPx(p2[1],o.T,o.H-o.B)];
+      return;
+    }
     if(!d.box){
       d.box=document.createElementNS(NS,'rect');
       [['fill',c('--accent')],['fill-opacity','.12'],['stroke',c('--accent')],['stroke-width','1'],['stroke-dasharray','4 3'],['pointer-events','none']].forEach(function(a){d.box.setAttribute(a[0],a[1]);});
-      d.svg.appendChild(d.box); hideTip();
+      d.svg.appendChild(d.box);
     }
     var x0=Math.min(d.p0[0],x), x1=Math.max(d.p0[0],x);
     var y0=o.xy?Math.min(d.p0[1],y):o.T, y1=o.xy?Math.max(d.p0[1],y):o.H-o.B;
@@ -138,8 +160,10 @@
   });
   document.addEventListener('mouseup',function(){
     if(!DRAG) return; var d=DRAG; DRAG=null;
-    if(!d.box) return;
+    if(!d.moved) return;
+    if(d.pan){ setTimeout(function(){ d.el._arrastou=false; },0); return; }
     d.el._arrastou=true; setTimeout(function(){ d.el._arrastou=false; },0);
+    if(!d.box) return;
     var s=d.sel; d.box.remove();
     if(s[1]-s[0]<8 || (d.o.xy && s[3]-s[2]<8)) return;
     d.o.aplicar(s[0],s[1],s[2],s[3]);
@@ -336,7 +360,14 @@
     zoomavel(el,{W:W,H:H,L:L,R:R,T:T,B:B,xy:false,
       aplicar:function(x0,x1){ janela(idxDe(x0),idxDe(x1)); },
       roda:function(f,px){ var m=idxDe(px); janela(m-(m-i0)*f, m+(i1-m)*f); },
-      reset:function(){ delete ZOOM[el.id]; cartaPLaney(el); }});
+      reset:function(){ delete ZOOM[el.id]; cartaPLaney(el); },
+      zoomAtivo:function(){ return !!z; },
+      pan:function(dxPx){
+        var span=i1-i0, dIdx=-dxPx/pw*span, na=i0+dIdx, nb=i1+dIdx;
+        if(na<0){ nb-=na; na=0; } if(nb>n-1){ na-=(nb-(n-1)); nb=n-1; }
+        ZOOM[el.id]={i0:Math.round(na),i1:Math.round(nb)};
+        cartaPLaney(el);
+      }});
     zoomBar(el,!!z,function(){ delete ZOOM[el.id]; cartaPLaney(el); });
   }
 
@@ -423,7 +454,10 @@
     function fmtX(v){ var span=xb-xa; return span<4000 ? nf(v,0) : nf(v/1000, span<40000?1:0)+' mil'; }
     var any=sel.p.length>0, ramp=RAMP(), clip='clip-'+el.id;
     var s=sv(W,H);
-    s+='<defs><clipPath id="'+clip+'"><rect x="'+L+'" y="'+T+'" width="'+pw+'" height="'+ph+'"/></clipPath></defs>';
+    // [V-pos-r3] recorte alargado pra esquerda em rmax: bolhas de menor volume
+    // ficam com o centro perto de x=L, e um recorte exatamente em L cortava
+    // metade delas ao meio (regressao introduzida pelo clip-path do zoom).
+    s+='<defs><clipPath id="'+clip+'"><rect x="'+(L-rmax)+'" y="'+T+'" width="'+(pw+rmax)+'" height="'+ph+'"/></clipPath></defs>';
     for(var gy=0;gy<=4;gy++){
       var yy=T+ph-(ph*gy)/4;
       s+='<line x1="'+L+'" y1="'+yy+'" x2="'+(W-R)+'" y2="'+yy+'" stroke="'+c('--line')+'" stroke-width="1"/>';
@@ -475,6 +509,15 @@
     zoomavel(el,{W:W,H:H,L:L,R:R,T:T,B:B,xy:true,
       aplicar:function(px0,px1,py0,py1){ var a=dado(px0,py1), b=dado(px1,py0); janela(a[0],b[0],a[1],b[1]); },
       roda:function(f,px,py){ var m=dado(px,py); janela(m[0]-(m[0]-xa)*f, m[0]+(xb-m[0])*f, m[1]-(m[1]-ya)*f, m[1]+(yb-m[1])*f); },
+      zoomAtivo:function(){ return !!z; },
+      pan:function(dxPx,dyPx){
+        var sx=xb-xa, sy=yb-ya, dX=-dxPx/pw*sx, dY=dyPx/ph*sy;
+        var nxa=xa+dX, nxb=xb+dX, nya=ya+dY, nyb=yb+dY;
+        if(nxa<0){nxb-=nxa;nxa=0;} if(nxb>xmaxTotal){nxa-=(nxb-xmaxTotal);nxb=xmaxTotal;}
+        if(nya<0){nyb-=nya;nya=0;} if(nyb>ymaxTotal){nya-=(nyb-ymaxTotal);nyb=ymaxTotal;}
+        ZOOM[el.id]={x0:nxa,x1:nxb,y0:nya,y1:nyb};
+        scatter(el,pts);
+      },
       reset:function(){ delete ZOOM[el.id]; scatter(el,pts); }});
     zoomBar(el,!!z,function(){ delete ZOOM[el.id]; scatter(el,pts); });
   }
